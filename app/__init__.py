@@ -1,0 +1,1 @@
+"""CryptoRadar backend package."""

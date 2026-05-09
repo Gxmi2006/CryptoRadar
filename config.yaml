@@ -1,0 +1,76 @@
+binance:
+  quote_assets: ["USDT"]
+  min_24h_volume_usdt: 5000000
+  max_symbols_to_analyze: 150
+  refresh_symbols_hours: 6
+  priority_symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
+  ignored_symbols: []
+  newly_listed_symbols: []
+  stablecoin_symbols: ["USDTUSDT", "USDCUSDT", "FDUSDUSDT", "TUSDUSDT", "DAIUSDT"]
+  watchlist_symbols: []
+  monitoring_mode: "high_volume"
+
+scanner:
+  scan_interval_seconds: 30
+  buy_score_threshold: 70
+  sell_score_threshold: 70
+  high_risk_threshold: 65
+  cooldown_minutes: 30
+  timeframes: ["5m", "15m", "1h", "4h", "1d"]
+  selected_symbol_kline_streams: false
+
+ai:
+  enabled: true
+  provider: "ollama"
+  base_url: "http://localhost:11434"
+  model: "qwen2.5:7b"
+  embedding_model: "nomic-embed-text"
+  temperature: 0.2
+  max_tokens: 700
+
+knowledge:
+  folder: "./knowledge"
+  vector_db: "./data/vector_db"
+  rebuild_on_start: false
+  chunk_size: 1200
+  chunk_overlap: 160
+  top_k: 5
+
+learning:
+  enabled: true
+  min_samples_before_weight_change: 30
+  weight_update_strength: 0.05
+  track_after_minutes: [15, 60, 240, 1440, 10080]
+  auto_adjust_weights: true
+  manual_feedback_enabled: true
+
+notifications:
+  telegram_enabled: true
+  desktop_enabled: false
+  email_enabled: false
+  discord_enabled: false
+  max_alerts_per_hour: 10
+  only_strong_signals: true
+  notify_startup: false
+  notify_errors: false
+  quiet_hours:
+    enabled: false
+    start: "22:00"
+    end: "07:00"
+
+telegram:
+  bot_token_env: "TELEGRAM_BOT_TOKEN"
+  chat_id_env: "TELEGRAM_CHAT_ID"
+
+email:
+  user_env: "EMAIL_USER"
+  password_env: "EMAIL_PASSWORD"
+  to: ""
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+
+discord:
+  webhook_env: "DISCORD_WEBHOOK_URL"
+
+storage:
+  sqlite_path: "./data/cryptoradar.sqlite3"
