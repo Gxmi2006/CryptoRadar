@@ -10,5 +10,12 @@ data/*.sqlite3-*
 data/vector_db/
 logs/*.log
 
+knowledge/*
+!knowledge/README.md
+
+build/
+dist/
+*.spec
+
 .DS_Store
 Thumbs.db

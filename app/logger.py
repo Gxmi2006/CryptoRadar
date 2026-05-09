@@ -24,6 +24,8 @@ def setup_logging(project_root: Path) -> None:
     root.addHandler(console)
     root.addHandler(_handler(log_dir / "app.log", logging.INFO))
     root.addHandler(_handler(log_dir / "errors.log", logging.ERROR))
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     for name, file_name in {"signals": "signals.log", "learning": "learning.log"}.items():
         logger = logging.getLogger(name)

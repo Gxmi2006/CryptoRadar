@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -39,16 +40,23 @@ Final Note:
 """.strip()
 
 
+SECRET_PATTERNS = (
+    re.compile(r"(?i)(telegram[_-]?bot[_-]?token|telegram[_-]?chat[_-]?id|api[_-]?key|secret|password)\s*[:=]\s*\S+"),
+    re.compile(r"\b\d{8,}:[A-Za-z0-9_-]{20,}\b"),
+)
+
+
 def build_signal_prompt(context: dict[str, Any], knowledge_chunks: list[dict[str, Any]]) -> str:
     sources = []
     for chunk in knowledge_chunks:
         sources.append(
             {
-                "file_name": chunk.get("file_name"),
-                "trust_level": chunk.get("trust_level", "medium"),
-                "text": chunk.get("text", "")[:900],
+                "file_name": sanitize_value(chunk.get("file_name")),
+                "trust_level": sanitize_value(chunk.get("trust_level", "medium")),
+                "text": sanitize_value(chunk.get("text", "")[:900]),
             }
         )
+    safe_context = sanitize_value(context)
     return f"""
 You are CryptoRadar, a local crypto market analysis assistant. Analyze the provided Binance Spot market data.
 
@@ -57,7 +65,7 @@ You are CryptoRadar, a local crypto market analysis assistant. Analyze the provi
 Use only the supplied market data and source chunks. If a source is weak, outdated, conflicts with live data, or promotes risky behavior, say so.
 
 Market context:
-{context}
+{safe_context}
 
 Relevant knowledge chunks:
 {sources}
@@ -71,6 +79,7 @@ Final Note must be exactly:
 
 
 def safe_ai_text(text: str, fallback: str) -> str:
+    text = sanitize_value(text)
     if not text.strip():
         return fallback
     lowered = text.lower()
@@ -81,8 +90,22 @@ def safe_ai_text(text: str, fallback: str) -> str:
         "sell now immediately",
         "guaranteed profit",
     ]
-    if any(phrase in lowered for phrase in blocked):
+    safety_text = lowered.replace("not guaranteed profit", "")
+    if any(phrase in safety_text for phrase in blocked):
         return fallback
     if FINAL_NOTE not in text:
         text = text.rstrip() + "\nFinal Note:\n" + FINAL_NOTE
     return text
+
+
+def sanitize_value(value: Any) -> Any:
+    if isinstance(value, str):
+        text = value
+        for pattern in SECRET_PATTERNS:
+            text = pattern.sub("[redacted]", text)
+        return text
+    if isinstance(value, list):
+        return [sanitize_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: sanitize_value(item) for key, item in value.items()}
+    return value

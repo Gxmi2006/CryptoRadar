@@ -37,3 +37,20 @@ def test_hold_signals_are_filtered_by_default(config: dict, db) -> None:
     signal["signal_type"] = "HOLD"
     signal["score"] = 80
     assert not service.should_notify(signal)
+
+
+def test_thresholds_are_inclusive(config: dict, db) -> None:
+    service = NotificationService(config, db)
+    buy = sample_signal()
+    buy["score"] = config["scanner"]["buy_score_threshold"]
+    assert service.should_notify(buy)
+
+    sell = sample_signal()
+    sell["signal_type"] = "SELL"
+    sell["score"] = config["scanner"]["sell_score_threshold"]
+    assert service.should_notify(sell)
+
+    risk = sample_signal()
+    risk["signal_type"] = "HIGH_RISK"
+    risk["score"] = config["scanner"]["high_risk_threshold"]
+    assert service.should_notify(risk)

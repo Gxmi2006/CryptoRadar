@@ -21,12 +21,13 @@ scanner:
 
 ai:
   enabled: true
-  provider: "ollama"
-  base_url: "http://localhost:11434"
-  model: "qwen2.5:7b"
-  embedding_model: "nomic-embed-text"
+  provider: "lmstudio"
+  base_url: "http://localhost:1234/v1"
+  model: "qwen/qwen3.5-9b"
   temperature: 0.2
-  max_tokens: 700
+  max_tokens: 500
+  timeout_seconds: 15
+  reasoning_effort: "none"
 
 knowledge:
   folder: "./knowledge"
@@ -49,10 +50,19 @@ notifications:
   desktop_enabled: false
   email_enabled: false
   discord_enabled: false
-  max_alerts_per_hour: 10
-  only_strong_signals: true
-  notify_startup: false
-  notify_errors: false
+
+  notify_buy: true
+  notify_sell: true
+  notify_hold: false
+  notify_wait: false
+  notify_avoid: false
+  notify_high_risk: true
+
+  max_alerts_per_hour: 20
+  only_strong_signals: false
+  notify_startup: true
+  notify_errors: true
+
   quiet_hours:
     enabled: false
     start: "22:00"
@@ -74,3 +84,11 @@ discord:
 
 storage:
   sqlite_path: "./data/cryptoradar.sqlite3"
+
+telegram_formatting:
+  use_template_formatter: true
+  max_message_chars: 1200
+  style: "clean_professional"
+  include_emojis: true
+  include_key_levels: true
+  include_risk_note: true

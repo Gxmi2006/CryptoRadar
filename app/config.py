@@ -41,6 +41,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "embedding_model": "nomic-embed-text",
         "temperature": 0.2,
         "max_tokens": 700,
+        "timeout_seconds": 15,
+        "reasoning_effort": "none",
     },
     "knowledge": {
         "folder": "./knowledge",
@@ -63,6 +65,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "desktop_enabled": False,
         "email_enabled": False,
         "discord_enabled": False,
+        "notify_buy": True,
+        "notify_sell": True,
+        "notify_hold": False,
+        "notify_wait": False,
+        "notify_avoid": False,
+        "notify_high_risk": True,
         "max_alerts_per_hour": 10,
         "only_strong_signals": True,
         "notify_startup": False,
@@ -79,6 +87,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "discord": {"webhook_env": "DISCORD_WEBHOOK_URL"},
     "storage": {"sqlite_path": "./data/cryptoradar.sqlite3"},
+    "telegram_formatting": {
+        "use_template_formatter": True,
+        "max_message_chars": 1200,
+        "style": "clean_professional",
+        "include_emojis": True,
+        "include_key_levels": True,
+        "include_risk_note": True,
+    },
 }
 
 

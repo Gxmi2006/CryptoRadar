@@ -20,7 +20,7 @@ Signals are analysis only. They are not guaranteed profit. You always decide man
 - Send Telegram alerts.
 - Optionally send desktop, email, or Discord alerts.
 - Read local knowledge files from the `knowledge/` folder.
-- Use local Ollama AI when available.
+- Use local LM Studio or Ollama AI when available.
 - Save signals and simulated paper trades in SQLite.
 - Track wins, losses, neutral results, and manual feedback.
 - Generate learning reports so scoring can improve slowly over time.
@@ -97,6 +97,48 @@ python main.py --test-telegram
 
 Do not commit your `.env` file. It is ignored by Git.
 
+## LM Studio Setup
+
+CryptoRadar can use LM Studio for local AI signal analysis. Telegram alert wording is still produced by fixed code templates, not by the AI model.
+
+1. Open LM Studio.
+2. Load a Qwen chat or instruct model.
+3. Start the local server.
+4. Confirm the server URL is `http://localhost:1234/v1`.
+
+In `config.yaml`, use:
+
+```yaml
+ai:
+  enabled: true
+  provider: "lmstudio"
+  base_url: "http://localhost:1234/v1"
+  model: "qwen/qwen3.5-9b"
+  reasoning_effort: "none"
+```
+
+Use the exact model name shown by LM Studio if yours is different.
+
+Test LM Studio:
+
+```bash
+python main.py --test-ai
+```
+
+Test the fixed Telegram template:
+
+```bash
+python main.py --test-telegram-format
+```
+
+Send a fake BUY signal through the real notification path:
+
+```bash
+python main.py --test-live-notification
+```
+
+If LM Studio is offline or the model fails, CryptoRadar logs the issue and continues with normal scoring and template alerts.
+
 ## Ollama Setup
 
 CryptoRadar can use local AI through Ollama. This is optional.
@@ -157,6 +199,24 @@ Show current settings:
 python main.py --show-config
 ```
 
+Test local AI:
+
+```bash
+python main.py --test-ai
+```
+
+Test the fixed Telegram template:
+
+```bash
+python main.py --test-telegram-format
+```
+
+Test the live notification path with a fake BUY signal:
+
+```bash
+python main.py --test-live-notification
+```
+
 Show top stored signals:
 
 ```bash
@@ -193,7 +253,7 @@ Edit `config.yaml` to change:
 - Scan interval.
 - Signal thresholds.
 - Telegram and notification behavior.
-- Ollama model names.
+- LM Studio or Ollama model names.
 - Knowledge folder location.
 - Learning settings.
 
