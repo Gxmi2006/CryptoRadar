@@ -1,40 +1,155 @@
 # CryptoRadar
 
-CryptoRadar is a terminal-based crypto market signal bot. It watches Binance Spot public market data, analyzes technical conditions, reads your local crypto notes, sends alerts, and tracks how past signals performed.
+> Backend-only crypto signal intelligence for Binance Spot markets, local AI analysis, and Telegram push alerts.
 
-CryptoRadar has no website, no dashboard, and no graphical interface. It runs from the command line or as a background service.
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](#requirements)
+[![No Trading](https://img.shields.io/badge/Trading-disabled-red)](#safety-first)
+[![Local AI](https://img.shields.io/badge/AI-LM%20Studio%20%7C%20Ollama-green)](#local-ai-analysis)
+[![Telegram](https://img.shields.io/badge/Alerts-Telegram-26A5E4)](#telegram-push-notifications)
 
-## Important Safety Note
+CryptoRadar is a terminal-based crypto market signal bot. It discovers active Binance Spot markets, scans broad token coverage by default, analyzes technical conditions, uses local AI when available, and sends clean Telegram notifications when strong signals appear.
 
-CryptoRadar does not trade. It does not place orders, cancel orders, withdraw funds, transfer funds, use futures, use margin, use leverage, or need Binance trading permissions.
+There is no website, no dashboard, and no frontend. CryptoRadar runs from the terminal or as a background service.
+
+## Main Focus
+
+| Focus | What CryptoRadar Does |
+| --- | --- |
+| Broad token scanning | Discovers active Binance Spot symbols and analyzes nearly every token that passes your quote, volume, and watchlist filters. USDT pairs are enabled by default. |
+| Local AI analysis | Uses LM Studio or Ollama locally to reason over market data, indicators, knowledge snippets, and signal history. No cloud AI is required by default. |
+| Telegram push alerts | Sends short, mobile-friendly Telegram alerts for eligible BUY, SELL, and HIGH_RISK signals. |
+| Learning loop | Tracks signal outcomes, simulated paper trades, manual feedback, and adaptive scoring notes. |
+| Safety-first design | The bot only analyzes and notifies. It cannot place trades or use Binance trading endpoints. |
+
+## Safety First
+
+CryptoRadar does not trade.
+
+It does not:
+
+- Place buy or sell orders
+- Cancel orders
+- Withdraw or transfer funds
+- Use futures, margin, leverage, or auto-invest
+- Require Binance trading API permission
+- Connect to Binance trading endpoints
 
 Signals are analysis only. They are not guaranteed profit. You always decide manually.
 
-## What CryptoRadar Can Do
+## How It Works
 
-- Monitor Binance Spot markets using public market data.
-- Track USDT pairs by default.
-- Calculate indicators such as RSI, MACD, EMA, SMA, Bollinger Bands, ATR, volume, support, resistance, and market structure.
-- Detect pumps, dumps, breakouts, failed breakouts, volume spikes, high-risk moves, and weak setups.
-- Create BUY, SELL, HOLD, WAIT, AVOID, and HIGH_RISK signals.
-- Send Telegram alerts.
-- Optionally send desktop, email, or Discord alerts.
-- Read local knowledge files from the `knowledge/` folder.
-- Use local LM Studio or Ollama AI when available.
-- Save signals and simulated paper trades in SQLite.
-- Track wins, losses, neutral results, and manual feedback.
-- Generate learning reports so scoring can improve slowly over time.
+```mermaid
+flowchart LR
+    A["Binance Spot public data"] --> B["Symbol discovery and market scanner"]
+    B --> C["Technical indicators"]
+    C --> D["Signal scoring"]
+    D --> E["Local AI analysis"]
+    E --> F["Telegram push alert"]
+    D --> G["SQLite signal history"]
+    G --> H["Paper trade tracking"]
+    H --> I["Adaptive scoring report"]
+```
+
+CryptoRadar watches public Binance Spot market data, calculates indicators, creates signal scores, asks local AI for extra analysis when configured, and then sends only the signals that pass your notification rules.
+
+## What CryptoRadar Can Analyze
+
+- Active Binance Spot pairs
+- USDT pairs by default
+- High-volume symbols
+- Watchlist symbols
+- Top movers
+- New listings you add to config
+- BTC and ETH market conditions
+- Breakouts, breakdowns, pumps, dumps, volume spikes, fake breakout risk, and high-risk moves
+
+The default configuration uses volume and symbol limits so the scanner stays practical. You can widen or narrow coverage in `config.yaml`.
+
+## Local AI Analysis
+
+CryptoRadar supports local AI through:
+
+- LM Studio at `http://localhost:1234/v1`
+- Ollama
+
+The AI is used for analysis only. It can help explain why a signal matters, summarize risk, compare indicator support, and include notes from your local knowledge folder.
+
+Telegram alert wording is still produced by fixed code templates. The LLM does not rewrite prices, scores, signal types, or key levels.
+
+Recommended LM Studio config:
+
+```yaml
+ai:
+  enabled: true
+  provider: "lmstudio"
+  base_url: "http://localhost:1234/v1"
+  model: "qwen/qwen3.5-9b"
+  temperature: 0.2
+  max_tokens: 500
+  timeout_seconds: 15
+  reasoning_effort: "none"
+  analysis_reasoning_effort: "medium"
+  analysis_max_tokens: 1200
+  analysis_timeout_seconds: 45
+```
+
+`reasoning_effort` stays at `none` for quick health checks. BUY, SELL, and HIGH_RISK signal analysis uses the separate `analysis_*` settings so Qwen can reason locally without changing Telegram formatting.
+
+If LM Studio is offline, slow, or returns no visible final answer, CryptoRadar logs the issue and continues with normal scoring and fallback analysis.
+
+Test local AI:
+
+```bash
+python main.py --test-ai
+```
+
+## Telegram Push Notifications
+
+Telegram is the main alert channel. Alerts are short, structured, and designed for phone screens.
+
+Example alert shape:
+
+```text
+BUY SIGNAL - SOLUSDT
+
+Score: 75/100
+Confidence: Medium
+Risk: Medium
+Trend: uptrend
+
+Why this matters:
+Breakout with strong relative volume while BTC trend is supportive.
+
+Key levels:
+Entry: 140.50-142.50
+Invalidation: 137.8
+Take-profit: 146, 150
+
+Final:
+This is an analysis-based signal, not guaranteed profit. Decide manually.
+```
+
+Default notification rules:
+
+| Signal | Default Rule |
+| --- | --- |
+| BUY | Send when score is 70 or higher |
+| SELL | Send when score is 70 or higher |
+| HIGH_RISK | Send when score is 65 or higher |
+| HOLD, WAIT, AVOID | Do not send by default |
+
+The bot also uses cooldowns and hourly alert limits to reduce spam.
 
 ## Quick Start
 
-1. Clone or download the project.
+1. Clone the project.
 
 ```bash
 git clone https://github.com/Gxmi2006/CryptoRadar.git
 cd CryptoRadar
 ```
 
-2. Create a Python virtual environment.
+2. Create and activate a virtual environment.
 
 Windows:
 
@@ -56,13 +171,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Copy the example environment file.
+4. Create your local environment file.
+
+Windows:
 
 ```bash
 copy .env.example .env
 ```
 
-On macOS or Linux:
+macOS or Linux:
 
 ```bash
 cp .env.example .env
@@ -74,105 +191,57 @@ cp .env.example .env
 python main.py --mock --scan-now
 ```
 
-Mock mode uses fake market data, so it is the easiest way to confirm everything works.
+Mock mode uses fake market data, so it is the safest first test.
 
-## Telegram Alerts
+## Telegram Setup
 
-Telegram is the main alert channel.
-
-1. Open Telegram and create a bot with BotFather.
-2. Copy the bot token into `.env`.
-3. Put your Telegram chat ID into `.env`.
+1. Open Telegram.
+2. Create a bot with BotFather.
+3. Put your bot token and chat ID in `.env`.
 
 ```bash
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 ```
 
-4. Send a test message.
+4. Send a test alert.
 
 ```bash
 python main.py --test-telegram
 ```
 
-Do not commit your `.env` file. It is ignored by Git.
+Do not commit `.env`. It is ignored by Git.
 
 ## LM Studio Setup
 
-CryptoRadar can use LM Studio for local AI signal analysis. Telegram alert wording is still produced by fixed code templates, not by the AI model.
-
 1. Open LM Studio.
-2. Load a Qwen chat or instruct model.
+2. Load your Qwen chat or instruct model.
 3. Start the local server.
 4. Confirm the server URL is `http://localhost:1234/v1`.
+5. Set the exact model name in `config.yaml`.
 
-In `config.yaml`, use:
-
-```yaml
-ai:
-  enabled: true
-  provider: "lmstudio"
-  base_url: "http://localhost:1234/v1"
-  model: "qwen/qwen3.5-9b"
-  reasoning_effort: "none"
-  analysis_reasoning_effort: "medium"
-  analysis_max_tokens: 1200
-  analysis_timeout_seconds: 45
-```
-
-Use the exact model name shown by LM Studio if yours is different.
-
-`reasoning_effort` is kept at `none` for quick health checks such as `--test-ai`.
-Real BUY, SELL, and HIGH_RISK signal analysis uses the separate `analysis_*`
-settings, so Qwen can reason locally without changing Telegram alert wording.
-If the model returns no visible final answer, CryptoRadar logs the problem and
-uses the normal non-AI analysis fallback.
-
-Test LM Studio:
+Useful tests:
 
 ```bash
 python main.py --test-ai
-```
-
-Test the fixed Telegram template:
-
-```bash
 python main.py --test-telegram-format
-```
-
-Send a fake BUY signal through the real notification path:
-
-```bash
 python main.py --test-live-notification
 ```
 
-If LM Studio is offline or the model fails, CryptoRadar logs the issue and continues with normal scoring and template alerts.
+## Knowledge Sources
 
-## Ollama Setup
-
-CryptoRadar can use local AI through Ollama. This is optional.
-
-Install Ollama, then run:
-
-```bash
-ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
-```
-
-If Ollama is not running, CryptoRadar still works with normal scoring and a safe fallback analysis.
-
-## Add Knowledge Sources
-
-Put your local research files inside the `knowledge/` folder.
+Add your local research files to the `knowledge/` folder.
 
 Supported files:
 
-- PDF
-- TXT
-- MD
-- CSV
-- JSON
-- DOCX
+| Type | Supported |
+| --- | --- |
+| PDF | Yes |
+| TXT | Yes |
+| MD | Yes |
+| CSV | Yes |
+| JSON | Yes |
+| DOCX | Yes |
 
 Rebuild the local knowledge index:
 
@@ -180,71 +249,26 @@ Rebuild the local knowledge index:
 python main.py --rebuild-knowledge
 ```
 
-CryptoRadar stores source file names, categories, trust levels, notes, warnings, and performance scores. It warns when a source looks risky, outdated, too short, or missing risk-management language.
+Knowledge sources stay local by default. CryptoRadar stores source quality notes and can reduce trust in sources that repeatedly support weak signals.
 
 ## Common Commands
 
-Run normally:
+| Command | Purpose |
+| --- | --- |
+| `python main.py` | Run the live background scanner |
+| `python main.py --mock` | Run with simulated market data |
+| `python main.py --scan-now` | Run one scan and exit |
+| `python main.py --test-telegram` | Send a Telegram test message |
+| `python main.py --test-ai` | Test LM Studio local AI |
+| `python main.py --test-telegram-format` | Preview the fixed alert template |
+| `python main.py --test-live-notification` | Send a fake BUY signal through the real notification path |
+| `python main.py --show-config` | Print sanitized config |
+| `python main.py --rebuild-knowledge` | Rebuild the local knowledge index |
+| `python main.py --daily-summary` | Send a daily summary now |
+| `python main.py --top-signals` | Show top stored signals |
+| `python main.py --learning-report` | Show learning performance |
 
-```bash
-python main.py
-```
-
-Run with fake market data:
-
-```bash
-python main.py --mock
-```
-
-Run one scan and exit:
-
-```bash
-python main.py --scan-now
-```
-
-Show current settings:
-
-```bash
-python main.py --show-config
-```
-
-Test local AI:
-
-```bash
-python main.py --test-ai
-```
-
-Test the fixed Telegram template:
-
-```bash
-python main.py --test-telegram-format
-```
-
-Test the live notification path with a fake BUY signal:
-
-```bash
-python main.py --test-live-notification
-```
-
-Show top stored signals:
-
-```bash
-python main.py --top-signals
-```
-
-Send a daily summary now:
-
-```bash
-python main.py --daily-summary
-```
-
-Show the learning report:
-
-```bash
-python main.py --learning-report
-```
-
-Mark a signal manually:
+Manual feedback:
 
 ```bash
 python main.py --mark-signal SIGNAL_ID win
@@ -252,35 +276,34 @@ python main.py --mark-signal SIGNAL_ID loss
 python main.py --mark-signal SIGNAL_ID neutral
 ```
 
-## Configuration
+## Configuration Highlights
 
-Edit `config.yaml` to change:
+Edit `config.yaml` to control:
 
-- Quote assets such as `USDT`, `FDUSD`, `BTC`, or `ETH`.
-- Minimum 24h volume.
-- Maximum symbols to analyze.
-- Scan interval.
-- Signal thresholds.
-- Telegram and notification behavior.
-- LM Studio or Ollama model names.
-- Knowledge folder location.
-- Learning settings.
+| Area | Important Settings |
+| --- | --- |
+| Market coverage | `quote_assets`, `min_24h_volume_usdt`, `max_symbols_to_analyze`, `watchlist_symbols` |
+| Scanner speed | `scan_interval_seconds`, timeframe list |
+| Signal thresholds | `buy_score_threshold`, `sell_score_threshold`, `high_risk_threshold` |
+| AI | `provider`, `base_url`, `model`, `analysis_reasoning_effort` |
+| Telegram | token env name, chat ID env name, cooldowns, alert limits |
+| Learning | paper-trade tracking, manual feedback, adaptive scoring |
 
-No Binance API key is required.
+No Binance API key is required for public market monitoring.
 
 ## Signal Scores
 
-CryptoRadar scores signals from 0 to 100.
+| Score | Label |
+| --- | --- |
+| 0-30 | Avoid |
+| 31-50 | Weak |
+| 51-65 | Watchlist |
+| 66-80 | Good signal |
+| 81-100 | Strong signal |
 
-- 0-30: Avoid
-- 31-50: Weak
-- 51-65: Watchlist
-- 66-80: Good signal
-- 81-100: Strong signal
+BUY scoring considers trend, volume, breakouts, RSI, MACD, EMA alignment, BTC and ETH direction, liquidity, volatility, support and resistance, knowledge-source support, and historical performance.
 
-BUY scoring looks at trend, volume, breakouts, RSI, MACD, EMA alignment, BTC and ETH direction, liquidity, volatility, support/resistance, knowledge-source support, and historical performance.
-
-SELL scoring looks at weakening momentum, failed breakouts, support breakdowns, bearish MACD, overbought RSI, sell volume, BTC and ETH weakness, resistance rejection, and previous sell-warning accuracy.
+SELL scoring considers weakening momentum, failed breakouts, support breakdowns, bearish MACD, overbought RSI, sell volume, BTC and ETH weakness, resistance rejection, and previous sell-warning accuracy.
 
 ## Learning System
 
@@ -300,23 +323,19 @@ The bot waits for enough completed signals before suggesting scoring changes. Th
 
 Every signal is saved as a simulated paper trade.
 
-BUY signals track possible entry, take-profit, stop-loss, invalidation, maximum profit, drawdown, and final result.
+| Signal Type | What Gets Tracked |
+| --- | --- |
+| BUY | Entry zone, take-profit, stop-loss, invalidation, favorable move, drawdown |
+| SELL | Whether the warning helped avoid downside |
+| HIGH_RISK | Whether the risk warning was useful |
+| HOLD | Whether staying neutral was reasonable |
 
-SELL and HIGH_RISK signals track whether the warning helped avoid downside.
+## Requirements
 
-HOLD signals track whether staying neutral was reasonable.
-
-## Notifications
-
-Default alert rules:
-
-- BUY alerts need score 70 or higher.
-- SELL alerts need score 70 or higher.
-- HIGH_RISK alerts need score 65 or higher.
-- HOLD, WAIT, and AVOID are not sent by default.
-- Alerts use cooldowns and hourly limits to reduce spam.
-
-Every alert reminds you that the signal is not guaranteed profit and that you must decide manually.
+- Python 3.11 or newer
+- Internet access for Binance public market data
+- Telegram bot token and chat ID for Telegram alerts
+- Optional: LM Studio or Ollama for local AI analysis
 
 ## Tests
 
@@ -328,16 +347,18 @@ pytest
 
 The tests cover indicators, scoring, Binance public-data parsing, notification cooldowns, RAG retrieval, prompt safety, paper trades, adaptive scoring, manual feedback, and the rule that no trading execution endpoints exist.
 
-## Files Created While Running
+## Runtime Files
 
 CryptoRadar writes runtime data locally:
 
-- SQLite database: `data/cryptoradar.sqlite3`
-- App logs: `logs/app.log`
-- Signal logs: `logs/signals.log`
-- Error logs: `logs/errors.log`
-- Learning logs: `logs/learning.log`
-- Local vector index: `data/vector_db/`
+| File or Folder | Purpose |
+| --- | --- |
+| `data/cryptoradar.sqlite3` | SQLite database |
+| `logs/app.log` | Main app log |
+| `logs/signals.log` | Signal log |
+| `logs/errors.log` | Error log |
+| `logs/learning.log` | Learning log |
+| `data/vector_db/` | Local knowledge index |
 
 These runtime files are ignored by Git.
 
