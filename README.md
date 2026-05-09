@@ -115,9 +115,18 @@ ai:
   base_url: "http://localhost:1234/v1"
   model: "qwen/qwen3.5-9b"
   reasoning_effort: "none"
+  analysis_reasoning_effort: "medium"
+  analysis_max_tokens: 1200
+  analysis_timeout_seconds: 45
 ```
 
 Use the exact model name shown by LM Studio if yours is different.
+
+`reasoning_effort` is kept at `none` for quick health checks such as `--test-ai`.
+Real BUY, SELL, and HIGH_RISK signal analysis uses the separate `analysis_*`
+settings, so Qwen can reason locally without changing Telegram alert wording.
+If the model returns no visible final answer, CryptoRadar logs the problem and
+uses the normal non-AI analysis fallback.
 
 Test LM Studio:
 

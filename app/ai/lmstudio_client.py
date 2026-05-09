@@ -32,14 +32,23 @@ class LMStudioClient:
             log.warning("LM Studio unavailable: %s", exc)
             return False
 
-    def chat(self, system_prompt: str, user_prompt: str, max_tokens: int | None = None) -> str | None:
+    def chat(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        timeout: float | None = None,
+    ) -> str | None:
         client = self._get_client()
         if client is None:
             return None
         try:
+            effort = self.reasoning_effort if reasoning_effort is None else reasoning_effort
             kwargs: dict[str, Any] = {}
-            if self.reasoning_effort:
-                kwargs["extra_body"] = {"reasoning_effort": self.reasoning_effort}
+            if effort:
+                kwargs["extra_body"] = {"reasoning_effort": effort}
+            request_timeout = self.timeout if timeout is None else timeout
             response = client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -48,6 +57,7 @@ class LMStudioClient:
                 ],
                 temperature=self.temperature,
                 max_tokens=max_tokens or self.max_tokens,
+                timeout=request_timeout,
                 **kwargs,
             )
             content = response.choices[0].message.content

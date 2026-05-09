@@ -59,6 +59,7 @@ def build_signal_prompt(context: dict[str, Any], knowledge_chunks: list[dict[str
     safe_context = sanitize_value(context)
     return f"""
 You are CryptoRadar, a local crypto market analysis assistant. Analyze the provided Binance Spot market data.
+You may reason internally, but do not include chain-of-thought. Output only the requested final fields.
 
 {SAFETY_GUIDANCE}
 

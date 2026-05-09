@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.ai.prompt_templates import FINAL_NOTE, build_signal_prompt, safe_ai_text
 from app.ai.signal_analyzer import LocalAISignalAnalyzer
 from app.ai.telegram_message_formatter import TelegramMessageFormatter, build_raw_signal_data
+from app.ai.lmstudio_client import LMStudioClient
 
 
 def test_fallback_analysis_contains_required_final_note(config: dict) -> None:
@@ -35,7 +36,90 @@ def test_prompt_demands_structured_output() -> None:
     prompt = build_signal_prompt({"symbol": "ETHUSDT"}, [{"file_name": "risk.md", "text": "Use stops."}])
     assert "Symbol:" in prompt
     assert "Source-Based Reasoning:" in prompt
+    assert "do not include chain-of-thought" in prompt
     assert FINAL_NOTE in prompt
+
+
+def test_lmstudio_chat_accepts_per_call_reasoning_overrides(config: dict) -> None:
+    config["ai"]["reasoning_effort"] = "none"
+    client = LMStudioClient(config)
+    captured = {}
+
+    class Message:
+        content = "ok"
+
+    class Choice:
+        message = Message()
+
+    class Response:
+        choices = [Choice()]
+
+    class Completions:
+        @staticmethod
+        def create(**kwargs):
+            captured.update(kwargs)
+            return Response()
+
+    class Chat:
+        completions = Completions()
+
+    class FakeClient:
+        chat = Chat()
+
+    client._client = FakeClient()
+    assert client.chat("system", "user", max_tokens=1200, reasoning_effort="medium", timeout=45) == "ok"
+    assert captured["max_tokens"] == 1200
+    assert captured["timeout"] == 45
+    assert captured["extra_body"] == {"reasoning_effort": "medium"}
+
+
+def test_lmstudio_analysis_uses_analysis_reasoning_settings(config: dict) -> None:
+    config["ai"]["enabled"] = True
+    config["ai"]["provider"] = "lmstudio"
+    config["ai"]["analysis_reasoning_effort"] = "medium"
+    config["ai"]["analysis_max_tokens"] = 1200
+    config["ai"]["analysis_timeout_seconds"] = 45
+    analyzer = LocalAISignalAnalyzer(config)
+    captured = {}
+
+    class FakeLMStudio:
+        @staticmethod
+        def is_available() -> bool:
+            return True
+
+        @staticmethod
+        def chat(system_prompt, user_prompt, max_tokens=None, reasoning_effort=None, timeout=None):
+            captured.update(
+                {
+                    "system_prompt": system_prompt,
+                    "max_tokens": max_tokens,
+                    "reasoning_effort": reasoning_effort,
+                    "timeout": timeout,
+                }
+            )
+            return f"Symbol: SOLUSDT\nSignal: BUY\nFinal Note: {FINAL_NOTE}"
+
+    analyzer.lmstudio_client = FakeLMStudio()
+    text = analyzer.analyze(
+        {
+            "symbol": "SOLUSDT",
+            "signal_type": "BUY",
+            "score": 75,
+            "confidence": "Medium",
+            "timeframe": "15m",
+            "trend": "uptrend",
+            "risk_level": "Medium",
+            "main_reason": "Breakout with volume",
+            "relative_volume": 2.1,
+            "warning": "Review manually",
+        },
+        [],
+    )
+    assert "Signal: BUY" in text
+    assert "reason internally" in captured["system_prompt"]
+    assert captured["max_tokens"] == 1200
+    assert captured["reasoning_effort"] == "medium"
+    assert captured["timeout"] == 45
 
 
 def test_telegram_formatter_uses_fixed_template_and_whitelisted_data(config: dict) -> None:

@@ -52,8 +52,10 @@ class LocalAISignalAnalyzer:
         return fallback
 
     def _analyze_with_lmstudio(self, prompt: str) -> str | None:
+        ai_cfg = self.config.get("ai", {})
         system_prompt = (
             "You are CryptoRadar's local AI analyst. Analyze only the supplied market data. "
+            "You may reason internally, but output only the final structured analysis fields. "
             "Never trade, never guarantee profit, never suggest leverage or futures, and keep the output short."
         )
         if not self._availability_checked:
@@ -61,7 +63,16 @@ class LocalAISignalAnalyzer:
             self._availability_checked = True
         if not self._available:
             return None
-        return self.lmstudio_client.chat(system_prompt, prompt)
+        text = self.lmstudio_client.chat(
+            system_prompt,
+            prompt,
+            max_tokens=int(ai_cfg.get("analysis_max_tokens", ai_cfg.get("max_tokens", 700))),
+            reasoning_effort=str(ai_cfg.get("analysis_reasoning_effort", ai_cfg.get("reasoning_effort", "medium"))),
+            timeout=float(ai_cfg.get("analysis_timeout_seconds", ai_cfg.get("timeout_seconds", 30))),
+        )
+        if not text:
+            log.warning("LM Studio signal analysis returned no visible final answer; using fallback analysis")
+        return text
 
     @staticmethod
     def fallback_analysis(context: dict[str, Any], knowledge_chunks: list[dict[str, Any]]) -> str:
