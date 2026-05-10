@@ -86,7 +86,7 @@ python main.py --collect-market-data-now
 python main.py --data-coverage-report
 ```
 
-By default, broad collection stores ticker data quickly and prints progress in PowerShell. If you want slower candle enrichment for each symbol, set `collector.fetch_candles: true` in `config.yaml`.
+By default, broad collection prints progress in PowerShell, stores ticker data for every eligible symbol, and fetches candle data only where it is useful for ML: priority/watchlist symbols and the most liquid coins up to `collector.max_candle_symbols_per_cycle`. If you want candles for every collected symbol, set `collector.fetch_candles: true` in `config.yaml`; if you want ticker-only collection, set it to `false`.
 
 The normal background service can also run the broad collector on its configured interval.
 
@@ -344,7 +344,7 @@ Edit `config.yaml` to control:
 | Area | Important Settings |
 | --- | --- |
 | Market coverage | `quote_assets`, `min_24h_volume_usdt`, `max_symbols_to_analyze`, `watchlist_symbols` |
-| Broad collector | `collector.max_symbols_per_cycle`, `collector.min_24h_volume_usdt`, `collector.interval_minutes` |
+| Broad collector | `collector.max_symbols_per_cycle`, `collector.fetch_candles`, `collector.max_candle_symbols_per_cycle`, `collector.interval_minutes` |
 | Scanner speed | `scan_interval_seconds`, timeframe list |
 | Signal thresholds | `buy_score_threshold`, `sell_score_threshold`, `high_risk_threshold` |
 | AI | `provider`, `base_url`, `model`, `analysis_reasoning_effort` |

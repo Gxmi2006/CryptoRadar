@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from app.binance.symbol_service import SymbolService
-from app.collector.broad_market_collector import BroadMarketCollector, classify_data_quality
+from app.collector.broad_market_collector import BroadMarketCollector, classify_data_quality, should_fetch_symbol_candles
 
 
 class FakeBroadRest:
+    def __init__(self) -> None:
+        self.kline_calls: list[str] = []
+
     def get_exchange_info(self) -> dict:
         return {
             "symbols": [
@@ -23,6 +26,7 @@ class FakeBroadRest:
         ]
 
     def get_klines(self, symbol: str, interval: str, limit: int = 24) -> list[list]:
+        self.kline_calls.append(symbol)
         if symbol == "MISSUSDT":
             raise RuntimeError("no candles")
         return [[index, "1", "1.1", "0.9", str(1 + index / 100), "100", index + 1, "1000", "5"] for index in range(limit)]
@@ -31,8 +35,12 @@ class FakeBroadRest:
 def test_broad_collector_includes_low_volume_symbols(config: dict, db) -> None:
     config["binance"]["min_24h_volume_usdt"] = 5_000_000
     config["collector"]["min_24h_volume_usdt"] = 0
-    summary = BroadMarketCollector(config, db, FakeBroadRest()).collect_now()
+    rest = FakeBroadRest()
+    summary = BroadMarketCollector(config, db, rest).collect_now()
     assert summary["collected"] == 3
+    assert summary["fetch_candles"] == "auto"
+    assert "BTCUSDT" in rest.kline_calls
+    assert "LOWUSDT" not in rest.kline_calls
 
     low = db.query_one("SELECT * FROM symbol_data_quality WHERE symbol='LOWUSDT'")
     assert low is not None
@@ -65,3 +73,12 @@ def test_collect_now_prints_progress(config: dict, db) -> None:
     BroadMarketCollector(config, db, FakeBroadRest()).collect_now(messages.append)
     assert any("Loading Binance" in message for message in messages)
     assert any("Saving" in message for message in messages)
+
+
+def test_auto_candle_policy_prioritizes_important_and_liquid_symbols() -> None:
+    assert should_fetch_symbol_candles("auto", "LOWUSDT", 500, {"LOWUSDT"}, 999, 1, 5_000_000)
+    assert should_fetch_symbol_candles("auto", "BTCUSDT", 20_000_000, set(), 0, 10, 5_000_000)
+    assert not should_fetch_symbol_candles("auto", "LOWUSDT", 500, set(), 0, 10, 5_000_000)
+    assert not should_fetch_symbol_candles("auto", "MIDUSDT", 10_000_000, set(), 10, 10, 5_000_000)
+    assert should_fetch_symbol_candles("all", "ANYUSDT", 0, set(), 999, 1, 5_000_000)
+    assert not should_fetch_symbol_candles("false", "BTCUSDT", 20_000_000, {"BTCUSDT"}, 0, 10, 5_000_000)

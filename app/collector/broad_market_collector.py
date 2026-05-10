@@ -22,9 +22,13 @@ class BroadMarketCollector:
         min_volume = float(cfg.get("min_24h_volume_usdt", 0))
         limit = int(cfg.get("max_symbols_per_cycle", 1000))
         include_low_data = bool(cfg.get("include_low_data_symbols", True))
-        fetch_candles = bool(cfg.get("fetch_candles", False))
+        fetch_mode = str(cfg.get("fetch_candles", "auto")).lower()
+        candle_min_volume = float(cfg.get("candle_min_24h_volume_usdt", 5_000_000))
+        max_candle_symbols = int(cfg.get("max_candle_symbols_per_cycle", 120))
         candle_interval = str(cfg.get("candle_interval", "1h"))
         candle_limit = int(cfg.get("candle_limit", 24))
+        important_symbols = set(self.config.get("binance", {}).get("priority_symbols", []))
+        important_symbols.update(self.config.get("binance", {}).get("watchlist_symbols", []))
 
         _progress(progress, "Loading Binance exchange info and 24h tickers...")
         info = self.rest.get_exchange_info()
@@ -40,6 +44,7 @@ class BroadMarketCollector:
         ]
         _progress(progress, f"Found {len(eligible)} active Spot symbols for {', '.join(sorted(quote_assets))}.")
 
+        candle_symbols_used = 0
         for item in eligible:
             symbol = item.get("symbol", "")
             ticker = tickers.get(symbol, {})
@@ -47,13 +52,24 @@ class BroadMarketCollector:
             if volume < min_volume and not include_low_data:
                 skipped += 1
                 continue
-            rows.append(self._build_row(item, ticker, candle_interval, candle_limit, fetch_candles))
+            should_fetch_candles = should_fetch_symbol_candles(
+                fetch_mode=fetch_mode,
+                symbol=symbol,
+                volume_usdt=volume,
+                important_symbols=important_symbols,
+                candle_symbols_used=candle_symbols_used,
+                max_candle_symbols=max_candle_symbols,
+                candle_min_volume=candle_min_volume,
+            )
+            if should_fetch_candles:
+                candle_symbols_used += 1
+            rows.append(self._build_row(item, ticker, candle_interval, candle_limit, should_fetch_candles))
             if progress and (len(rows) == 1 or len(rows) % 50 == 0):
-                _progress(progress, f"Prepared {len(rows)} symbols...")
+                _progress(progress, f"Prepared {len(rows)} symbols... candles fetched for {candle_symbols_used}.")
             if len(rows) >= limit:
                 break
 
-        _progress(progress, f"Saving {len(rows)} broad market snapshots...")
+        _progress(progress, f"Saving {len(rows)} broad market snapshots with candles for {candle_symbols_used} symbols...")
         self.store.save_snapshots(rows)
         quality_counts: dict[str, int] = {}
         for row in rows:
@@ -62,7 +78,8 @@ class BroadMarketCollector:
             "collected": len(rows),
             "skipped": skipped,
             "quote_assets": sorted(quote_assets),
-            "fetch_candles": fetch_candles,
+            "fetch_candles": fetch_mode,
+            "candle_symbols": candle_symbols_used,
             "quality_counts": quality_counts,
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
@@ -161,6 +178,28 @@ def classify_data_quality(price: float, volume_usdt: float, candle_count: int, c
             reasons.append("thin_candles")
         return "thin", reasons
     return "good", reasons
+
+
+def should_fetch_symbol_candles(
+    fetch_mode: str,
+    symbol: str,
+    volume_usdt: float,
+    important_symbols: set[str],
+    candle_symbols_used: int,
+    max_candle_symbols: int,
+    candle_min_volume: float,
+) -> bool:
+    if fetch_mode in {"false", "off", "no", "0"}:
+        return False
+    if fetch_mode in {"true", "on", "yes", "1", "all"}:
+        return True
+    if fetch_mode != "auto":
+        return False
+    if symbol in important_symbols:
+        return True
+    if candle_symbols_used >= max_candle_symbols:
+        return False
+    return volume_usdt >= candle_min_volume
 
 
 def _changes_from_candles(candles: list[dict[str, float]]) -> tuple[float, float]:
