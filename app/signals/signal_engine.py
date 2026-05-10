@@ -9,6 +9,7 @@ from app.indicators.indicators import analyze_indicators
 from app.indicators.market_structure import classify_structure
 from app.indicators.support_resistance import distance_pct, nearest_levels
 from app.learning.adaptive_scoring import AdaptiveScoringEngine
+from app.learning.ml_model import FutureMLModel
 from app.scanner.breakout_detector import detect_breakdown, detect_breakout, detect_failed_breakout
 from app.scanner.scoring import ScoringEngine, score_label
 from app.scanner.trend_detector import detect_trend, trend_from_snapshot
@@ -28,6 +29,7 @@ class SignalEngine:
         self.hold = HoldSignalEngine(scoring)
         self.risk = RiskEngine(scoring)
         self.ai = LocalAISignalAnalyzer(config)
+        self.ml = FutureMLModel(db, config)
 
     def analyze_symbol(
         self,
@@ -113,7 +115,7 @@ class SignalEngine:
         }
         ai_text = self.ai.analyze(context, knowledge_chunks)
         signal_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{symbol}-{uuid4().hex[:8]}"
-        return {
+        signal = {
             "id": signal_id,
             "symbol": symbol,
             "signal_type": signal_type,
@@ -151,6 +153,10 @@ class SignalEngine:
             "warning": warning,
             "final_note": "This is an analysis-based signal, not guaranteed profit. Decide manually.",
         }
+        ml_prediction = self.ml.predict_for_signal(signal)
+        if ml_prediction:
+            signal["ml_prediction"] = ml_prediction
+        return signal
 
     def _choose_signal(
         self,

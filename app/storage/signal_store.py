@@ -60,6 +60,27 @@ class SignalStore:
                 signal.get("ai_analysis", ""),
             ),
         )
+        prediction = signal.get("ml_prediction")
+        if prediction:
+            self.db.execute(
+                """
+                INSERT INTO ml_predictions(
+                    signal_id, symbol, success_probability, risk_score,
+                    confidence_score, data_quality, model_version, payload_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    signal["id"],
+                    signal["symbol"],
+                    prediction.get("success_probability"),
+                    prediction.get("risk_score"),
+                    prediction.get("confidence_score"),
+                    prediction.get("data_quality"),
+                    prediction.get("model_version"),
+                    self.db.dumps(prediction),
+                ),
+            )
         for source in signal.get("knowledge_sources_used", []):
             self.db.execute(
                 "INSERT INTO citations(signal_id, source_id, file_name, chunk_id, quote) VALUES (?, ?, ?, ?, ?)",

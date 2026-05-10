@@ -18,7 +18,7 @@ There is no website, no dashboard, and no frontend. CryptoRadar runs from the te
 | Broad token scanning | Discovers active Binance Spot symbols and analyzes nearly every token that passes your quote, volume, and watchlist filters. USDT pairs are enabled by default. |
 | Local AI analysis | Uses LM Studio or Ollama locally to reason over market data, indicators, knowledge snippets, and signal history. No cloud AI is required by default. |
 | Telegram push alerts | Sends short, mobile-friendly Telegram alerts for eligible BUY, SELL, and HIGH_RISK signals. |
-| Learning loop | Tracks signal outcomes, simulated paper trades, manual feedback, and adaptive scoring notes. |
+| Learning loop | Tracks signal outcomes, simulated paper trades, broad market data, ML filtering, manual feedback, and adaptive scoring notes. |
 | Safety-first design | The bot only analyzes and notifies. It cannot place trades or use Binance trading endpoints. |
 
 ## Safety First
@@ -57,6 +57,7 @@ CryptoRadar watches public Binance Spot market data, calculates indicators, crea
 - Active Binance Spot pairs
 - USDT pairs by default
 - High-volume symbols
+- Low-volume/minor symbols for ML data collection
 - Watchlist symbols
 - Top movers
 - New listings you add to config
@@ -64,6 +65,28 @@ CryptoRadar watches public Binance Spot market data, calculates indicators, crea
 - Breakouts, breakdowns, pumps, dumps, volume spikes, fake breakout risk, and high-risk moves
 
 The default configuration uses volume and symbol limits so the scanner stays practical. You can widen or narrow coverage in `config.yaml`.
+
+## Broad Data Collection For ML
+
+CryptoRadar separates live alert scanning from broad data collection.
+
+| Layer | Purpose |
+| --- | --- |
+| Live scanner | Keeps Telegram alerts focused on stronger, higher-quality signals |
+| Broad collector | Stores data for active Binance Spot symbols, including minor and low-volume coins |
+| Data-quality labels | Marks coins as `good`, `thin`, `low_volume`, or `missing_candles` instead of silently dropping them |
+| ML dataset | Uses stored signals and outcomes to build local training examples |
+
+This helps the future ML filter learn from more than only the obvious high-volume winners.
+
+Run broad collection manually:
+
+```powershell
+python main.py --collect-market-data-now
+python main.py --data-coverage-report
+```
+
+The normal background service can also run the broad collector on its configured interval.
 
 ## Local AI Analysis
 
@@ -251,6 +274,38 @@ python main.py --rebuild-knowledge
 
 Knowledge sources stay local by default. CryptoRadar stores source quality notes and can reduce trust in sources that repeatedly support weak signals.
 
+## Local ML Filter
+
+CryptoRadar can train a small local ML model from saved signal history. This is not LLM fine-tuning.
+
+The ML model learns from rows like:
+
+- signal type
+- score details
+- RSI, MACD, relative volume, ATR, and price changes
+- BTC and ETH trend context
+- data-quality label
+- final result: win or loss
+
+The model outputs:
+
+- success probability
+- risk score
+- confidence score
+- data-quality warning
+- model version
+
+ML is an extra filter only. It does not replace the scoring engine and it never trades.
+
+Train and inspect the local model:
+
+```powershell
+python main.py --train-ml-model
+python main.py --ml-report
+```
+
+If not enough labeled examples exist, training will stop safely and explain what is missing.
+
 ## Common Commands
 
 | Command | Purpose |
@@ -264,6 +319,10 @@ Knowledge sources stay local by default. CryptoRadar stores source quality notes
 | `python main.py --test-live-notification` | Send a fake BUY signal through the real notification path |
 | `python main.py --show-config` | Print sanitized config |
 | `python main.py --rebuild-knowledge` | Rebuild the local knowledge index |
+| `python main.py --collect-market-data-now` | Collect broad Binance Spot data for ML |
+| `python main.py --data-coverage-report` | Show data coverage and weak-data symbols |
+| `python main.py --train-ml-model` | Train the local ML filter from labeled signal history |
+| `python main.py --ml-report` | Show ML training and prediction status |
 | `python main.py --daily-summary` | Send a daily summary now |
 | `python main.py --top-signals` | Show top stored signals |
 | `python main.py --learning-report` | Show learning performance |
@@ -283,9 +342,11 @@ Edit `config.yaml` to control:
 | Area | Important Settings |
 | --- | --- |
 | Market coverage | `quote_assets`, `min_24h_volume_usdt`, `max_symbols_to_analyze`, `watchlist_symbols` |
+| Broad collector | `collector.max_symbols_per_cycle`, `collector.min_24h_volume_usdt`, `collector.interval_minutes` |
 | Scanner speed | `scan_interval_seconds`, timeframe list |
 | Signal thresholds | `buy_score_threshold`, `sell_score_threshold`, `high_risk_threshold` |
 | AI | `provider`, `base_url`, `model`, `analysis_reasoning_effort` |
+| ML | `ml.min_training_samples`, `ml.random_forest_min_samples`, `ml.model_path` |
 | Telegram | token env name, chat ID env name, cooldowns, alert limits |
 | Learning | paper-trade tracking, manual feedback, adaptive scoring |
 

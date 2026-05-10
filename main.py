@@ -9,11 +9,13 @@ from pathlib import Path
 
 from app.ai.lmstudio_client import LMStudioClient
 from app.ai.telegram_message_formatter import TelegramMessageFormatter
+from app.collector.broad_market_collector import BroadMarketCollector
 from app.config import load_config, safe_config_view
 from app.database import Database
 from app.knowledge.vector_store import rebuild_knowledge_index
 from app.learning.feedback import FeedbackService
 from app.learning.learning_report import LearningReport
+from app.learning.ml_model import FutureMLModel
 from app.logger import setup_logging
 from app.notifications.notification_service import NotificationService
 from app.scheduler import CryptoRadarService
@@ -46,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--show-config", action="store_true", help="Print sanitized config.")
     parser.add_argument("--rebuild-knowledge", action="store_true", help="Rebuild the local knowledge index.")
+    parser.add_argument("--collect-market-data-now", action="store_true", help="Collect broad Binance Spot market data for ML.")
+    parser.add_argument("--data-coverage-report", action="store_true", help="Show broad market data coverage.")
+    parser.add_argument("--train-ml-model", action="store_true", help="Train the local ML filter from labeled signal history.")
+    parser.add_argument("--ml-report", action="store_true", help="Show local ML training and prediction status.")
     parser.add_argument("--daily-summary", action="store_true", help="Send a daily summary immediately.")
     parser.add_argument("--top-signals", action="store_true", help="Print the current best signals.")
     parser.add_argument("--learning-report", action="store_true", help="Print the learning report.")
@@ -117,6 +123,23 @@ async def async_main() -> int:
     if args.rebuild_knowledge:
         summary = rebuild_knowledge_index(config, db, PROJECT_ROOT)
         print(summary)
+        return 0
+
+    if args.collect_market_data_now:
+        summary = BroadMarketCollector(config, db).collect_now()
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    if args.data_coverage_report:
+        print(BroadMarketCollector(config, db).coverage_report())
+        return 0
+
+    if args.train_ml_model:
+        print(FutureMLModel(db, config, PROJECT_ROOT).train())
+        return 0
+
+    if args.ml_report:
+        print(FutureMLModel(db, config, PROJECT_ROOT).report())
         return 0
 
     service = CryptoRadarService(config=config, db=db, project_root=PROJECT_ROOT, mock=args.mock)

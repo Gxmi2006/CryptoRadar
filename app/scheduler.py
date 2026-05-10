@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.collector.broad_market_collector import BroadMarketCollector
 from app.binance.candle_service import CandleService
 from app.binance.rest_client import BinancePublicRestClient
 from app.binance.symbol_service import SymbolService
@@ -40,6 +41,7 @@ class CryptoRadarService:
         self.market_store = MarketStore(db)
         self.paper_tracker = PaperTradeTracker(db, config)
         self.knowledge = KnowledgeRetriever(config, db, project_root)
+        self.collector = BroadMarketCollector(config, db, self.rest)
 
     async def run_forever(self) -> None:
         log.info("CryptoRadar started. Mode=%s", "mock" if self.mock else "live")
@@ -48,21 +50,41 @@ class CryptoRadarService:
         if self.config["notifications"].get("notify_startup"):
             self.notifier.send_text("CryptoRadar started. Monitoring public Spot market data only.")
 
-        interval = int(self.config["scanner"]["scan_interval_seconds"])
+        collector_task = None
+        if self.config.get("collector", {}).get("enabled", True):
+            collector_task = asyncio.create_task(self._collector_loop())
+
+        try:
+            interval = int(self.config["scanner"]["scan_interval_seconds"])
+            while True:
+                try:
+                    signals = await self.scan_once()
+                    log.info("Health check: scan complete, signals=%s", len(signals))
+                except asyncio.CancelledError:
+                    raise
+                except KeyboardInterrupt:
+                    log.info("Shutdown requested.")
+                    return
+                except Exception as exc:
+                    log.exception("Scan failed: %s", exc)
+                    if self.config["notifications"].get("notify_errors"):
+                        self.notifier.send_text(f"CryptoRadar error: {type(exc).__name__}. Check logs.")
+                await asyncio.sleep(interval)
+        finally:
+            if collector_task:
+                collector_task.cancel()
+
+    async def _collector_loop(self) -> None:
+        interval = max(1, int(self.config.get("collector", {}).get("interval_minutes", 30))) * 60
         while True:
+            await asyncio.sleep(interval)
             try:
-                signals = await self.scan_once()
-                log.info("Health check: scan complete, signals=%s", len(signals))
+                summary = await asyncio.to_thread(self.collector.collect_now)
+                log.info("Broad market collection complete: %s", summary)
             except asyncio.CancelledError:
                 raise
-            except KeyboardInterrupt:
-                log.info("Shutdown requested.")
-                return
             except Exception as exc:
-                log.exception("Scan failed: %s", exc)
-                if self.config["notifications"].get("notify_errors"):
-                    self.notifier.send_text(f"CryptoRadar error: {type(exc).__name__}. Check logs.")
-            await asyncio.sleep(interval)
+                log.warning("Broad market collection failed: %s", exc)
 
     async def scan_once(self) -> list[dict[str, Any]]:
         snapshots, candle_map = self._load_market_data()

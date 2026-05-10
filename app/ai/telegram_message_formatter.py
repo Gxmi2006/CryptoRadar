@@ -110,6 +110,7 @@ def build_raw_signal_data(signal: dict[str, Any]) -> dict[str, Any]:
         "possible_stop_loss_zone": signal.get("possible_stop_loss_zone"),
         "source_based_reasoning": _source_note(signal),
         "historical_performance_note": "Adaptive scoring will include this signal after outcome tracking.",
+        "ml_prediction": signal.get("ml_prediction"),
     }
     return {key: sanitize_value(value) for key, value in raw.items() if value not in (None, "", [])}
 
@@ -134,6 +135,14 @@ def _compact_details(raw: dict[str, Any]) -> list[str]:
         details.append(f"BTC trend: {raw['btc_trend']}")
     if "eth_trend" in raw:
         details.append(f"ETH trend: {raw['eth_trend']}")
+    ml_prediction = raw.get("ml_prediction")
+    if isinstance(ml_prediction, dict) and "success_probability" in ml_prediction:
+        details.append(
+            "ML filter: "
+            f"{float(ml_prediction['success_probability']) * 100:.0f}% success probability, "
+            f"risk {float(ml_prediction.get('risk_score', 0.5)) * 100:.0f}%, "
+            f"data {ml_prediction.get('data_quality', 'unknown')}"
+        )
     return details
 
 

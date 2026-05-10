@@ -78,6 +78,33 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS broad_market_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT,
+    base_asset TEXT,
+    quote_asset TEXT,
+    price REAL,
+    change_1h REAL,
+    change_4h REAL,
+    change_24h REAL,
+    volume_usdt REAL,
+    high_24h REAL,
+    low_24h REAL,
+    data_quality TEXT,
+    quality_reasons_json TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS symbol_data_quality (
+    symbol TEXT PRIMARY KEY,
+    data_quality TEXT,
+    quality_reasons_json TEXT,
+    volume_usdt REAL,
+    candle_count INTEGER,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS candles (
     symbol TEXT,
     interval TEXT,
@@ -232,6 +259,42 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
 
 CREATE TABLE IF NOT EXISTS learning_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_text TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ml_training_examples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal_id TEXT UNIQUE,
+    symbol TEXT,
+    signal_type TEXT,
+    label INTEGER,
+    features_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ml_predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal_id TEXT,
+    symbol TEXT,
+    success_probability REAL,
+    risk_score REAL,
+    confidence_score REAL,
+    data_quality TEXT,
+    model_version TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ml_training_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_version TEXT,
+    model_type TEXT,
+    sample_count INTEGER,
+    train_count INTEGER,
+    test_count INTEGER,
+    accuracy REAL,
     report_text TEXT,
     payload_json TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP

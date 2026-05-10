@@ -25,6 +25,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "watchlist_symbols": [],
         "monitoring_mode": "high_volume",
     },
+    "collector": {
+        "enabled": True,
+        "collect_all_active_spot": True,
+        "quote_assets": ["USDT"],
+        "min_24h_volume_usdt": 0,
+        "max_symbols_per_cycle": 1000,
+        "include_low_data_symbols": True,
+        "interval_minutes": 30,
+        "candle_interval": "1h",
+        "candle_limit": 24,
+    },
     "scanner": {
         "scan_interval_seconds": 30,
         "buy_score_threshold": 70,
@@ -62,6 +73,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "track_after_minutes": [15, 60, 240, 1440, 10080],
         "auto_adjust_weights": True,
         "manual_feedback_enabled": True,
+    },
+    "ml": {
+        "enabled": True,
+        "min_training_samples": 30,
+        "random_forest_min_samples": 200,
+        "test_size": 0.25,
+        "model_path": "./data/ml/model.joblib",
+        "training_examples_min_confidence": 0,
     },
     "notifications": {
         "telegram_enabled": True,
