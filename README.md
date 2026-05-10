@@ -88,12 +88,12 @@ ai:
   max_tokens: 500
   timeout_seconds: 15
   reasoning_effort: "none"
-  analysis_reasoning_effort: "medium"
-  analysis_max_tokens: 1200
-  analysis_timeout_seconds: 45
+  analysis_reasoning_effort: "none"
+  analysis_max_tokens: 300
+  analysis_timeout_seconds: 3
 ```
 
-`reasoning_effort` stays at `none` for quick health checks. BUY, SELL, and HIGH_RISK signal analysis uses the separate `analysis_*` settings so Qwen can reason locally without changing Telegram formatting.
+`reasoning_effort` and `analysis_reasoning_effort` stay at `none` by default so live scans do not wait on long model thinking. The analysis timeout is intentionally short; if Qwen does not answer quickly, CryptoRadar keeps the scan moving with fallback analysis. If you want deeper AI commentary later, set `analysis_reasoning_effort` to `low` or `medium` and raise `analysis_timeout_seconds`.
 
 If LM Studio is offline, slow, or returns no visible final answer, CryptoRadar logs the issue and continues with normal scoring and fallback analysis.
 

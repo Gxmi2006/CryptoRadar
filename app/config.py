@@ -43,9 +43,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_tokens": 700,
         "timeout_seconds": 15,
         "reasoning_effort": "none",
-        "analysis_reasoning_effort": "medium",
-        "analysis_max_tokens": 1200,
-        "analysis_timeout_seconds": 45,
+        "analysis_reasoning_effort": "none",
+        "analysis_max_tokens": 300,
+        "analysis_timeout_seconds": 3,
     },
     "knowledge": {
         "folder": "./knowledge",
