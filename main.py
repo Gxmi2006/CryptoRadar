@@ -32,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Backend-only crypto signal notification bot. It never trades.",
     )
     parser.add_argument("--mock", action="store_true", help="Run with simulated market data.")
+    parser.add_argument("--auto-pipeline", action="store_true", help="Run continuous scan, collection, learning, and ML automation.")
     parser.add_argument("--scan-now", action="store_true", help="Run one scan and exit.")
     parser.add_argument("--test-telegram", action="store_true", help="Send a Telegram test message.")
     parser.add_argument("--test-ai", action="store_true", help="Send a short test prompt to LM Studio.")
@@ -143,6 +144,10 @@ async def async_main() -> int:
         return 0
 
     service = CryptoRadarService(config=config, db=db, project_root=PROJECT_ROOT, mock=args.mock)
+
+    if args.auto_pipeline:
+        await service.run_auto_pipeline()
+        return 0
 
     if args.daily_summary:
         summary = service.build_daily_summary()

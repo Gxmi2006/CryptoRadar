@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from app.collector.broad_market_collector import BroadMarketCollector
 from app.binance.candle_service import CandleService
@@ -13,6 +13,7 @@ from app.binance.symbol_service import SymbolService
 from app.knowledge.retriever import KnowledgeRetriever
 from app.knowledge.vector_store import rebuild_knowledge_index
 from app.learning.learning_report import LearningReport
+from app.learning.ml_model import FutureMLModel
 from app.learning.paper_trade_tracker import PaperTradeTracker
 from app.mock.mock_market import MockMarket
 from app.notifications.notification_service import NotificationService
@@ -42,49 +43,185 @@ class CryptoRadarService:
         self.paper_tracker = PaperTradeTracker(db, config)
         self.knowledge = KnowledgeRetriever(config, db, project_root)
         self.collector = BroadMarketCollector(config, db, self.rest)
+        self.ml = FutureMLModel(db, config, project_root)
 
     async def run_forever(self) -> None:
-        log.info("CryptoRadar started. Mode=%s", "mock" if self.mock else "live")
-        if self.config["knowledge"].get("rebuild_on_start"):
-            rebuild_knowledge_index(self.config, self.db, self.project_root)
-        if self.config["notifications"].get("notify_startup"):
-            self.notifier.send_text("CryptoRadar started. Monitoring public Spot market data only.")
+        self._startup()
 
         collector_task = None
         if self.config.get("collector", {}).get("enabled", True):
             collector_task = asyncio.create_task(self._collector_loop())
 
         try:
-            interval = int(self.config["scanner"]["scan_interval_seconds"])
-            while True:
-                try:
-                    signals = await self.scan_once()
-                    log.info("Health check: scan complete, signals=%s", len(signals))
-                except asyncio.CancelledError:
-                    raise
-                except KeyboardInterrupt:
-                    log.info("Shutdown requested.")
-                    return
-                except Exception as exc:
-                    log.exception("Scan failed: %s", exc)
-                    if self.config["notifications"].get("notify_errors"):
-                        self.notifier.send_text(f"CryptoRadar error: {type(exc).__name__}. Check logs.")
-                await asyncio.sleep(interval)
+            await self._scanner_loop()
         finally:
             if collector_task:
                 collector_task.cancel()
 
-    async def _collector_loop(self) -> None:
+    async def run_auto_pipeline(self, run_once: bool = False, status: Callable[[str], None] | None = None) -> None:
+        status = status or print
+        automation = self.config.get("automation", {})
+        if not automation.get("enabled", True):
+            status("Automation is disabled in config.")
+            return
+
+        self._startup(status)
+        status("CryptoRadar auto pipeline is running. Press Ctrl+C to stop.")
+
+        if run_once:
+            if automation.get("collect_market_data", True):
+                await self._run_collector_once(status)
+            if automation.get("scan_market", True):
+                await self._run_scan_once(status)
+            if automation.get("auto_train_ml", True):
+                await self._run_ml_training_once(status)
+            await self._run_learning_report_once(status)
+            self._print_pipeline_status(status)
+            return
+
+        tasks: list[asyncio.Task] = []
+        if automation.get("scan_market", True):
+            tasks.append(asyncio.create_task(self._scanner_loop(status=status)))
+        if automation.get("collect_market_data", True) and self.config.get("collector", {}).get("enabled", True):
+            tasks.append(asyncio.create_task(self._collector_loop(status=status, run_immediately=True)))
+        if automation.get("auto_train_ml", True):
+            tasks.append(asyncio.create_task(self._ml_training_loop(status=status, run_immediately=True)))
+        tasks.append(asyncio.create_task(self._learning_report_loop(status=status)))
+        tasks.append(asyncio.create_task(self._status_loop(status=status)))
+
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+
+    def _startup(self, status: Callable[[str], None] | None = None) -> None:
+        message = f"CryptoRadar started. Mode={'mock' if self.mock else 'live'}"
+        log.info(message)
+        if status:
+            status(message)
+        if self.config["knowledge"].get("rebuild_on_start"):
+            if status:
+                status("Rebuilding local knowledge index...")
+            rebuild_knowledge_index(self.config, self.db, self.project_root)
+        if self.config["notifications"].get("notify_startup"):
+            self.notifier.send_text("CryptoRadar started. Monitoring public Spot market data only.")
+
+    async def _scanner_loop(self, status: Callable[[str], None] | None = None) -> None:
+        interval = int(self.config["scanner"]["scan_interval_seconds"])
+        while True:
+            try:
+                await self._run_scan_once(status)
+            except asyncio.CancelledError:
+                raise
+            except KeyboardInterrupt:
+                log.info("Shutdown requested.")
+                return
+            except Exception as exc:
+                log.exception("Scan failed: %s", exc)
+                if status:
+                    status(f"Scan failed: {type(exc).__name__}. Check logs.")
+                if self.config["notifications"].get("notify_errors"):
+                    self.notifier.send_text(f"CryptoRadar error: {type(exc).__name__}. Check logs.")
+            await asyncio.sleep(interval)
+
+    async def _run_scan_once(self, status: Callable[[str], None] | None = None) -> list[dict[str, Any]]:
+        signals = await self.scan_once()
+        log.info("Health check: scan complete, signals=%s", len(signals))
+        if status:
+            status(f"Scan complete. Signals generated: {len(signals)}")
+        return signals
+
+    async def _collector_loop(self, status: Callable[[str], None] | None = None, run_immediately: bool = False) -> None:
         interval = max(1, int(self.config.get("collector", {}).get("interval_minutes", 30))) * 60
+        if run_immediately:
+            await self._run_collector_once(status)
         while True:
             await asyncio.sleep(interval)
             try:
-                summary = await asyncio.to_thread(self.collector.collect_now)
-                log.info("Broad market collection complete: %s", summary)
+                await self._run_collector_once(status)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 log.warning("Broad market collection failed: %s", exc)
+                if status:
+                    status(f"Broad market collection failed: {type(exc).__name__}. Check logs.")
+
+    async def _run_collector_once(self, status: Callable[[str], None] | None = None) -> dict[str, Any]:
+        try:
+            summary = await asyncio.to_thread(self.collector.collect_now, status)
+        except Exception as exc:
+            log.warning("Broad market collection failed: %s", exc)
+            if status:
+                status(f"Broad market collection failed: {type(exc).__name__}. Check logs.")
+            return {"collected": 0, "candle_symbols": 0, "error": type(exc).__name__}
+        log.info("Broad market collection complete: %s", summary)
+        if status:
+            status(f"Market data collected: {summary.get('collected', 0)} symbols, candles for {summary.get('candle_symbols', 0)}.")
+        return summary
+
+    async def _ml_training_loop(self, status: Callable[[str], None] | None = None, run_immediately: bool = False) -> None:
+        interval = max(1, int(self.config.get("automation", {}).get("ml_train_interval_minutes", 60))) * 60
+        if run_immediately:
+            await self._run_ml_training_once(status)
+        while True:
+            await asyncio.sleep(interval)
+            await self._run_ml_training_once(status)
+
+    async def _run_ml_training_once(self, status: Callable[[str], None] | None = None) -> str:
+        try:
+            report = await asyncio.to_thread(self.ml.train)
+        except Exception as exc:
+            log.warning("ML training failed: %s", exc)
+            report = f"ML training failed: {type(exc).__name__}. Check logs."
+        if status:
+            status(f"ML training: {report}")
+        log.info("ML training result: %s", report)
+        return report
+
+    async def _learning_report_loop(self, status: Callable[[str], None] | None = None) -> None:
+        interval_minutes = int(self.config.get("automation", {}).get("learning_report_interval_minutes", 60))
+        if interval_minutes <= 0:
+            return
+        interval = interval_minutes * 60
+        while True:
+            await asyncio.sleep(interval)
+            await self._run_learning_report_once(status)
+
+    async def _run_learning_report_once(self, status: Callable[[str], None] | None = None) -> str:
+        try:
+            report = await asyncio.to_thread(LearningReport(self.db, self.config).render_text)
+        except Exception as exc:
+            log.warning("Learning report failed: %s", exc)
+            report = f"Learning report failed: {type(exc).__name__}. Check logs."
+        if status:
+            first_line = report.splitlines()[0] if report else "Learning report updated."
+            status(first_line)
+        return report
+
+    async def _status_loop(self, status: Callable[[str], None] | None = None) -> None:
+        interval_minutes = int(self.config.get("automation", {}).get("status_interval_minutes", 10))
+        if interval_minutes <= 0:
+            return
+        interval = interval_minutes * 60
+        while True:
+            await asyncio.sleep(interval)
+            self._print_pipeline_status(status)
+
+    def _print_pipeline_status(self, status: Callable[[str], None] | None = None) -> None:
+        if not status:
+            return
+        signals = self.db.query_one("SELECT COUNT(*) AS count FROM signals")
+        broad = self.db.query_one("SELECT COUNT(*) AS count FROM broad_market_snapshots")
+        examples = self.db.query_one("SELECT COUNT(*) AS count FROM ml_training_examples")
+        predictions = self.db.query_one("SELECT COUNT(*) AS count FROM ml_predictions")
+        status(
+            "Status: "
+            f"signals={int(signals['count']) if signals else 0}, "
+            f"broad_snapshots={int(broad['count']) if broad else 0}, "
+            f"ml_examples={int(examples['count']) if examples else 0}, "
+            f"ml_predictions={int(predictions['count']) if predictions else 0}"
+        )
 
     async def scan_once(self) -> list[dict[str, Any]]:
         snapshots, candle_map = self._load_market_data()

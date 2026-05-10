@@ -218,6 +218,32 @@ python main.py --mock --scan-now
 
 Mock mode uses fake market data, so it is the safest first test.
 
+## One-Command Automation
+
+Use the automated PowerShell runner when you want CryptoRadar to keep working without typing each command manually.
+
+```powershell
+cd "C:\Users\ASUS\Documents\New project 3"
+.\scripts\run_cryptoradar.ps1
+```
+
+Or run the same automation directly:
+
+```powershell
+python main.py --auto-pipeline
+```
+
+The auto pipeline continuously:
+
+- scans the market and sends eligible Telegram alerts
+- collects broad Binance Spot data for ML
+- fetches candle data in smart auto mode
+- refreshes paper-trade outcomes during scans
+- attempts ML training on its configured interval
+- prints periodic PowerShell status lines
+
+If there are not enough labeled win/loss examples yet, ML training waits safely and the rest of the bot keeps running.
+
 ## Telegram Setup
 
 1. Open Telegram.
@@ -312,6 +338,7 @@ If not enough labeled examples exist, training will stop safely and explain what
 
 | Command | Purpose |
 | --- | --- |
+| `python main.py --auto-pipeline` | Run continuous scanning, collection, learning, and ML automation |
 | `python main.py` | Run the live background scanner |
 | `python main.py --mock` | Run with simulated market data |
 | `python main.py --scan-now` | Run one scan and exit |
@@ -345,6 +372,7 @@ Edit `config.yaml` to control:
 | --- | --- |
 | Market coverage | `quote_assets`, `min_24h_volume_usdt`, `max_symbols_to_analyze`, `watchlist_symbols` |
 | Broad collector | `collector.max_symbols_per_cycle`, `collector.fetch_candles`, `collector.max_candle_symbols_per_cycle`, `collector.interval_minutes` |
+| Automation | `automation.auto_train_ml`, `automation.ml_train_interval_minutes`, `automation.status_interval_minutes` |
 | Scanner speed | `scan_interval_seconds`, timeframe list |
 | Signal thresholds | `buy_score_threshold`, `sell_score_threshold`, `high_risk_threshold` |
 | AI | `provider`, `base_url`, `model`, `analysis_reasoning_effort` |

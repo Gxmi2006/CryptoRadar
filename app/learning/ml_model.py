@@ -26,6 +26,8 @@ FEATURE_NAMES = [
     "signal_buy",
     "signal_sell",
     "signal_high_risk",
+    "knowledge_score",
+    "knowledge_source_count",
     "data_quality_score",
 ]
 
@@ -299,6 +301,8 @@ def extract_ml_features(signal: dict[str, Any], quality: dict[str, Any] | None =
         "signal_buy": 1.0 if signal_type == "BUY" else 0.0,
         "signal_sell": 1.0 if signal_type == "SELL" else 0.0,
         "signal_high_risk": 1.0 if signal_type == "HIGH_RISK" else 0.0,
+        "knowledge_score": _float(features.get("knowledge_score")),
+        "knowledge_source_count": float(len(signal.get("knowledge_sources_used") or [])),
         "data_quality_score": QUALITY_SCORES.get(str(data_quality), QUALITY_SCORES["unknown"]),
         "data_quality": str(data_quality),
     }

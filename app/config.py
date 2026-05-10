@@ -39,6 +39,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "candle_interval": "1h",
         "candle_limit": 24,
     },
+    "automation": {
+        "enabled": True,
+        "collect_market_data": True,
+        "scan_market": True,
+        "auto_train_ml": True,
+        "ml_train_interval_minutes": 60,
+        "learning_report_interval_minutes": 60,
+        "status_interval_minutes": 10,
+    },
     "scanner": {
         "scan_interval_seconds": 30,
         "buy_score_threshold": 70,
