@@ -3,7 +3,6 @@
 > Backend-only crypto signal intelligence for Binance Spot markets, local AI analysis, and Telegram push alerts.
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](#requirements)
-[![No Trading](https://img.shields.io/badge/Trading-disabled-red)](#safety-first)
 [![Local AI](https://img.shields.io/badge/AI-LM%20Studio%20%7C%20Ollama-green)](#local-ai-analysis)
 [![Telegram](https://img.shields.io/badge/Alerts-Telegram-26A5E4)](#telegram-push-notifications)
 
