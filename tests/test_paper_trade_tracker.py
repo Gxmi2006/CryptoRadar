@@ -29,3 +29,36 @@ def test_paper_trade_hits_take_profit(db, config: dict) -> None:
     assert row["result"] == "win"
     perf = db.query_one("SELECT final_result FROM signal_performance WHERE signal_id='sig-paper'")
     assert perf["final_result"] == "win"
+
+
+def test_buy_threshold_counts_small_move_as_neutral_after_wait(db, config: dict) -> None:
+    db.execute(
+        """
+        INSERT INTO signals(id, symbol, signal_type, created_at, price, score, confidence, risk_level, timeframe, main_reason, payload_json)
+        VALUES ('sig-paper', 'SOLUSDT', 'BUY', CURRENT_TIMESTAMP, 100, 75, 'Medium', 'Medium', '15m', 'test', '{}')
+        """
+    )
+    tracker = PaperTradeTracker(db, config)
+    trade_id = tracker.create_for_signal(buy_signal())
+    db.execute("UPDATE paper_trades SET created_at=datetime('now', '-5 hours') WHERE id=?", (trade_id,))
+
+    row = tracker.update_with_price(trade_id, 100.1)
+
+    assert row["result"] == "neutral"
+    perf = db.query_one("SELECT final_result FROM signal_performance WHERE signal_id='sig-paper'")
+    assert perf["final_result"] == "neutral"
+
+
+def test_buy_threshold_wins_at_two_point_five_percent(db, config: dict) -> None:
+    db.execute(
+        """
+        INSERT INTO signals(id, symbol, signal_type, created_at, price, score, confidence, risk_level, timeframe, main_reason, payload_json)
+        VALUES ('sig-paper', 'SOLUSDT', 'BUY', CURRENT_TIMESTAMP, 100, 75, 'Medium', 'Medium', '15m', 'test', '{}')
+        """
+    )
+    tracker = PaperTradeTracker(db, config)
+    trade_id = tracker.create_for_signal(buy_signal())
+
+    row = tracker.update_with_price(trade_id, 102.6)
+
+    assert row["result"] == "win"

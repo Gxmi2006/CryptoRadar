@@ -32,4 +32,7 @@ def config(tmp_path: Path) -> dict:
     cfg["notifications"]["desktop_enabled"] = False
     cfg["notifications"]["email_enabled"] = False
     cfg["notifications"]["discord_enabled"] = False
+    cfg["notifications"]["notify_startup"] = False
+    cfg["notifications"]["notify_errors"] = False
+    cfg["news"]["enabled"] = False
     return cfg

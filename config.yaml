@@ -21,8 +21,8 @@ collector:
   fetch_candles: "auto"
   candle_min_24h_volume_usdt: 5000000
   max_candle_symbols_per_cycle: 120
-  candle_interval: "1h"
-  candle_limit: 24
+  candle_interval: "15m"
+  candle_limit: 500
 
 automation:
   enabled: true
@@ -30,8 +30,54 @@ automation:
   scan_market: true
   auto_train_ml: true
   ml_train_interval_minutes: 60
+  ml_retrain_new_labels: 100
   learning_report_interval_minutes: 60
   status_interval_minutes: 10
+  health_check_interval_seconds: 300
+
+backtest:
+  enabled: true
+  default_timeframe: "15m"
+  default_days: 30
+  lookback_candles: 220
+  max_symbols: 50
+  horizons: ["1h", "4h", "24h"]
+  auto_run: true
+  interval_hours: 24
+
+coin_alerts:
+  enabled: true
+  default_quote: "USDT"
+  interval_seconds: 300
+  cooldown_minutes: 30
+  preferred_interval_seconds: 180
+  preferred_cooldown_minutes: 15
+  candle_interval: "15m"
+  candle_limit: 96
+  surge_24h_pct: 10
+  dump_24h_pct: -8
+  surge_1h_pct: 4
+  dump_1h_pct: -4
+  volume_spike_ratio: 2.0
+  near_high_pct: 2.0
+  high_risk_pump_pct: 20
+  watchlist_auto_alerts: true
+  preferred_auto_alerts: true
+
+news:
+  enabled: true
+  sources:
+    - name: "CoinDesk"
+      url: "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    - name: "Cointelegraph"
+      url: "https://cointelegraph.com/rss.xml"
+  interval_minutes: 15
+  lookback_hours_on_prefer: 72
+  max_news_per_coin_on_add: 3
+  importance_threshold: 70
+  per_symbol_cooldown_minutes: 60
+  max_news_alerts_per_hour: 6
+  ml_breakout_probability_threshold: 0.65
 
 scanner:
   scan_interval_seconds: 30
@@ -70,14 +116,25 @@ learning:
   track_after_minutes: [15, 60, 240, 1440, 10080]
   auto_adjust_weights: true
   manual_feedback_enabled: true
+  performance_thresholds:
+    buy_win_pct: 2.5
+    buy_loss_pct: -1.5
+    sell_win_pct: 2.0
+    sell_loss_pct: -2.0
+    high_risk_win_pct: 3.0
+    high_risk_loss_pct: -3.0
+    neutral_after_minutes: 240
 
 ml:
   enabled: true
   min_training_samples: 30
+  sample_warning_threshold: 200
+  min_positive_samples_warning: 30
   random_forest_min_samples: 200
   test_size: 0.25
-  model_path: "./data/ml/model.joblib"
+  model_path: "./models/latest_model.pkl"
   training_examples_min_confidence: 0
+  auto_label_after_minutes: 240
 
 notifications:
   telegram_enabled: true
@@ -117,7 +174,7 @@ discord:
   webhook_env: "DISCORD_WEBHOOK_URL"
 
 storage:
-  sqlite_path: "./data/cryptoradar.sqlite3"
+  sqlite_path: "./data/cryptoradar.db"
 
 telegram_formatting:
   use_template_formatter: true

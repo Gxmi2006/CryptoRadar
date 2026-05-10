@@ -207,6 +207,51 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS news_items (
+    id TEXT PRIMARY KEY,
+    source TEXT,
+    title TEXT,
+    link TEXT,
+    published_at TEXT,
+    matched_symbols_json TEXT,
+    sentiment TEXT,
+    importance_score INTEGER,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS news_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    news_id TEXT,
+    symbol TEXT,
+    channel TEXT,
+    status TEXT,
+    message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(news_id, symbol, channel)
+);
+
+CREATE TABLE IF NOT EXISTS preferred_coins (
+    symbol TEXT PRIMARY KEY,
+    category TEXT,
+    added_time TEXT DEFAULT CURRENT_TIMESTAMP,
+    alert_sensitivity TEXT,
+    cooldown_minutes INTEGER,
+    notes TEXT,
+    active INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS holdings (
+    symbol TEXT PRIMARY KEY,
+    entry_price REAL,
+    amount REAL,
+    category TEXT,
+    added_time TEXT DEFAULT CURRENT_TIMESTAMP,
+    alert_settings TEXT,
+    last_alert_time TEXT,
+    active INTEGER DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS paper_trades (
     id TEXT PRIMARY KEY,
     signal_id TEXT,
@@ -296,6 +341,41 @@ CREATE TABLE IF NOT EXISTS ml_training_runs (
     test_count INTEGER,
     accuracy REAL,
     report_text TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS backtest_runs (
+    id TEXT PRIMARY KEY,
+    timeframe TEXT,
+    days INTEGER,
+    max_symbols INTEGER,
+    symbol_filter TEXT,
+    lookback_candles INTEGER,
+    horizons_json TEXT,
+    status TEXT,
+    signal_count INTEGER DEFAULT 0,
+    report_text TEXT,
+    payload_json TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS backtest_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT,
+    strategy TEXT,
+    symbol TEXT,
+    signal_type TEXT,
+    score INTEGER,
+    timeframe TEXT,
+    open_time INTEGER,
+    price REAL,
+    future_return_pct REAL,
+    max_favorable_pct REAL,
+    max_drawdown_pct REAL,
+    success INTEGER,
+    false_positive INTEGER,
+    data_quality TEXT,
     payload_json TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

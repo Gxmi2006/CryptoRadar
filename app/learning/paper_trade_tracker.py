@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from app.learning.outcome_rules import classify_paper_result, row_age_minutes
+
 
 class PaperTradeTracker:
     def __init__(self, db: Any, config: dict[str, Any]):
@@ -58,25 +60,25 @@ class PaperTradeTracker:
         result = row["result"]
         if status == "waiting_entry":
             status = "open"
-            entry = price
 
         move_pct = self._move_pct(row["side"], entry, price)
         max_profit = max(float(row["max_profit_pct"] or 0), move_pct)
         max_drawdown = min(float(row["max_drawdown_pct"] or 0), move_pct)
-        if row["side"] == "BUY":
-            if price >= float(row["take_profit"] or 0):
-                result = "win"
-                status = "closed"
-            elif price <= float(row["stop_loss"] or 0):
-                result = "loss"
-                status = "closed"
-        elif row["side"] in {"SELL", "HIGH_RISK"}:
-            if move_pct >= 3:
-                result = "win"
-            elif move_pct <= -3:
-                result = "loss"
-        elif abs(move_pct) < 2:
-            result = "neutral"
+        take_profit_hit = row["side"] == "BUY" and price >= float(row["take_profit"] or 0)
+        stop_loss_hit = row["side"] == "BUY" and price <= float(row["stop_loss"] or 0)
+        classified = classify_paper_result(
+            signal_type=row["side"],
+            move_pct=move_pct,
+            max_profit_pct=max_profit,
+            max_drawdown_pct=max_drawdown,
+            take_profit_hit=take_profit_hit,
+            stop_loss_hit=stop_loss_hit,
+            age_minutes=row_age_minutes(row.get("created_at")),
+            config=self.config,
+        )
+        if classified in {"win", "loss", "neutral"}:
+            result = classified
+            status = "closed"
 
         self.db.execute(
             """

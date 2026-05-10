@@ -56,6 +56,9 @@ def test_missing_candles_are_labeled_instead_of_dropped(config: dict, db) -> Non
     missing = db.query_one("SELECT * FROM symbol_data_quality WHERE symbol='MISSUSDT'")
     assert missing is not None
     assert missing["data_quality"] == "missing_candles"
+    saved = db.query_one("SELECT COUNT(*) AS count FROM candles WHERE symbol='BTCUSDT' AND interval=?", (config["collector"]["candle_interval"],))
+    assert saved is not None
+    assert saved["count"] == config["collector"]["candle_limit"]
     report = BroadMarketCollector(config, db, FakeBroadRest()).coverage_report()
     assert "MISSUSDT" in report
 

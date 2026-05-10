@@ -76,8 +76,7 @@ def test_auto_pipeline_ml_training_handles_too_few_samples(config: dict, db, tmp
     asyncio.run(service.run_auto_pipeline(run_once=True, status=messages.append))
 
     row = db.query_one("SELECT report_text FROM ml_training_runs ORDER BY id DESC LIMIT 1")
-    assert row is not None
-    assert "Need at least 30" in row["report_text"]
+    assert row is None
     assert any("Need at least 30" in message for message in messages)
 
 

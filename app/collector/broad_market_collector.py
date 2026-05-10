@@ -149,6 +149,8 @@ class BroadMarketCollector:
             "quality_reasons": reasons,
             "payload": payload,
             "candle_count": len(candles),
+            "candle_interval": candle_interval,
+            "candles": candles,
         }
 
     def _safe_klines(self, symbol: str, interval: str, limit: int) -> list[dict[str, float]]:

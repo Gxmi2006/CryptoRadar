@@ -21,6 +21,25 @@ There is no website, no dashboard, and no frontend. CryptoRadar runs from the te
 | Learning loop | Tracks signal outcomes, simulated paper trades, broad market data, ML filtering, manual feedback, and adaptive scoring notes. |
 | Safety-first design | The bot only analyzes and notifies. It cannot place trades or use Binance trading endpoints. |
 
+## What Makes CryptoRadar Different
+
+CryptoRadar is built as a **proof-first alert engine**, not a hype bot.
+
+| Approach | What Usually Happens | CryptoRadar Difference |
+| --- | --- | --- |
+| Basic price alert bots | Alert when price crosses a number | Combines trend, volume, indicators, data quality, preferred news, and ML confidence |
+| Manual chart watching | Easy to miss fast moves | Watches broad Binance Spot coverage and preferred coins continuously |
+| Auto-trading bots | Can place risky orders | Notification-only. No orders, no leverage, no futures, no withdrawals |
+| CryptoRadar | Measures before trusting itself | Stores paper trades, backtests signals, compares baselines, and trains a local ML filter from outcomes |
+
+Highlights:
+
+- **Preferred coin intelligence:** `/prefer FOREST` or `/prefer SOLUSDT` starts focused movement, news, and ML breakout monitoring.
+- **Telegram-first workflow:** manage preferred coins, holdings, status, ML status, and news from Telegram.
+- **Broad ML data collection:** stores major and minor Binance Spot data with quality labels instead of silently ignoring thin coins.
+- **Local AI optional:** LM Studio/Ollama can explain signals locally; fixed templates keep alert numbers deterministic.
+- **Threshold-based learning:** tiny moves like `+0.1%` are not counted as wins.
+
 ## Safety First
 
 CryptoRadar does not trade.
@@ -244,6 +263,95 @@ The auto pipeline continuously:
 
 If there are not enough labeled win/loss examples yet, ML training waits safely and the rest of the bot keeps running.
 
+When built as `CryptoRadar.exe`, double-clicking the EXE starts the full automation pipeline automatically. The app creates missing `data`, `models`, `logs`, `exports`, `backups`, and `knowledge` folders, initializes SQLite, starts scanner/collector/ML/watchlist/holding/health loops, and sends a Telegram startup message when Telegram is configured.
+
+## Proof Engine And Backtesting
+
+CryptoRadar can test saved candle data locally before you trust a strategy or ML filter.
+
+```powershell
+python main.py --backtest
+python main.py --signal-quality-report
+```
+
+Useful filters:
+
+```powershell
+python main.py --backtest --backtest-symbol SOLUSDT
+python main.py --backtest --backtest-timeframe 15m --backtest-days 30 --backtest-max-symbols 50
+```
+
+The backtester uses only stored SQLite candles. It disables AI and notifications during replay, compares CryptoRadar signals against simple momentum, volume-spike, and random baselines, and reports whether the signals are actually beating simple alternatives.
+
+## One-Coin Movement Alerts
+
+You can check a coin ID directly and get a Telegram-style movement alert.
+
+```powershell
+python main.py --coin-alert SOL
+python main.py --coin-alert SOLUSDT
+```
+
+CryptoRadar resolves `SOL` to the active Binance Spot pair `SOLUSDT`, checks recent candles and 24h ticker data, then reports events such as surge, dump, fast 1h move, volume spike, near 24h high/low, or high-risk pump. If Telegram is enabled, the same message is sent to Telegram.
+
+If a coin is not on normal Binance Spot, CryptoRadar also tries Binance Alpha public data. For example, `FOREST` can resolve to an Alpha trade symbol such as `ALPHA_348USDT` when Binance Alpha exposes it.
+
+Preferred coins get extra attention. When you add a coin with `/prefer`, CryptoRadar checks public crypto RSS feeds for significant matching news and sends only important Telegram alerts. These alerts use first-glance emojis for trend and risk: `🚀` huge surge, `📈` uptrend, `📉` downtrend, `⚠️` risk, `🔥` volume spike, `📰` news, and `🧠` ML breakout context.
+
+News alerts use public RSS by default, no API key:
+
+- CoinDesk RSS
+- Cointelegraph RSS
+
+If a trained local ML model exists, preferred alerts include success probability, risk, confidence, and data quality. If not, the alert says ML is still collecting enough labeled examples.
+
+For automatic coin alerts, add symbols to `binance.watchlist_symbols` in `config.yaml` and run:
+
+```powershell
+python main.py --auto-pipeline
+```
+
+Preferred coins can also be managed from Telegram without editing config.
+
+## Telegram Control Commands
+
+After the app is running, Telegram becomes the control panel:
+
+| Command | Purpose |
+| --- | --- |
+| `/status` | Show scanner, Telegram, ML, AI, preferred coin, and holdings status |
+| `/mlstatus` | Show ML samples, model version, accuracy, and learning state |
+| `/prefer SOLUSDT BTCUSDT PEPEUSDT` | Add preferred coins |
+| `/unprefer SOLUSDT` | Remove preferred coins |
+| `/preferred` | List preferred coins |
+| `/clearpreferred` | Clear preferred coins |
+| `/news FOREST` | Check latest significant public news plus movement and ML breakout status |
+| `/watch SOLUSDT 100 2.5` | Track a holding with entry price and optional amount |
+| `/list` | List tracked holdings |
+| `/remove SOLUSDT` | Remove a holding |
+| `/pause` | Pause scanner/monitor loops |
+| `/resume` | Resume scanner/monitor loops |
+| `/help` | Show Telegram command help |
+
+Preferred coins are coins you care about. Holdings are coins you already bought. CryptoRadar monitors both, but it still never trades.
+
+## Build The EXE
+
+Build a clean one-file Windows EXE with:
+
+```powershell
+cd "C:\Users\ASUS\Documents\New project 3"
+.\scripts\build_exe.ps1 -Clean
+```
+
+The output will be:
+
+```text
+dist\CryptoRadar.exe
+```
+
+Copy your private `.env` beside the EXE if you want Telegram enabled. Do not commit `.env`.
+
 ## Telegram Setup
 
 1. Open Telegram.
@@ -313,7 +421,7 @@ The ML model learns from rows like:
 - RSI, MACD, relative volume, ATR, and price changes
 - BTC and ETH trend context
 - data-quality label
-- final result: win or loss
+- final result: win, loss, or neutral
 
 The model outputs:
 
@@ -324,6 +432,20 @@ The model outputs:
 - model version
 
 ML is an extra filter only. It does not replace the scoring engine and it never trades.
+
+### ML Success Thresholds
+
+CryptoRadar does not count tiny moves as successful predictions. The default learning rules are:
+
+| Signal Type | Win | Loss | Neutral |
+| --- | --- | --- | --- |
+| BUY | `+2.5%` or take-profit hit | `-1.5%` or stop/invalidation hit | Anything between after the tracking window |
+| SELL warning | `2.0%` favorable drop | `2.0%` adverse rise | Anything between after the tracking window |
+| HIGH_RISK warning | `3.0%` favorable drop | `3.0%` adverse rise | Anything between after the tracking window |
+
+For ML training, `win` is the positive class. `loss` and `neutral` are negative classes, so the model learns to filter weak/noisy alerts instead of celebrating tiny moves.
+
+If real win labels are still rare, CryptoRadar warns that accuracy may be inflated by many non-win examples. In that case, use the ML note as a filter only while more market outcomes collect.
 
 Train and inspect the local model:
 
@@ -350,6 +472,9 @@ If not enough labeled examples exist, training will stop safely and explain what
 | `python main.py --rebuild-knowledge` | Rebuild the local knowledge index |
 | `python main.py --collect-market-data-now` | Collect broad Binance Spot data for ML |
 | `python main.py --data-coverage-report` | Show data coverage and weak-data symbols |
+| `python main.py --coin-alert SOL` | Check one coin ID and send a movement alert |
+| `python main.py --backtest` | Replay stored candles and compare CryptoRadar signals with baselines |
+| `python main.py --signal-quality-report` | Summarize live results, latest backtest, and ML readiness |
 | `python main.py --train-ml-model` | Train the local ML filter from labeled signal history |
 | `python main.py --ml-report` | Show ML training and prediction status |
 | `python main.py --daily-summary` | Send a daily summary now |
@@ -444,12 +569,16 @@ CryptoRadar writes runtime data locally:
 
 | File or Folder | Purpose |
 | --- | --- |
-| `data/cryptoradar.sqlite3` | SQLite database |
+| `data/cryptoradar.db` | SQLite database |
+| `models/latest_model.pkl` | Active local ML model |
+| `models/model_reports/` | ML training reports |
 | `logs/app.log` | Main app log |
 | `logs/signals.log` | Signal log |
 | `logs/errors.log` | Error log |
 | `logs/learning.log` | Learning log |
 | `data/vector_db/` | Local knowledge index |
+| `exports/` | Future exports |
+| `backups/` | Future backups |
 
 These runtime files are ignored by Git.
 

@@ -61,6 +61,41 @@ class CollectorStore:
                 for row in rows
             ),
         )
+        candle_rows = []
+        for row in rows:
+            symbol = row["symbol"]
+            interval = row.get("candle_interval")
+            if not interval:
+                continue
+            for candle in row.get("candles", []) or []:
+                candle_rows.append(
+                    (
+                        symbol,
+                        interval,
+                        int(candle["open_time"]),
+                        candle.get("open", 0),
+                        candle.get("high", 0),
+                        candle.get("low", 0),
+                        candle.get("close", 0),
+                        candle.get("volume", 0),
+                        int(candle.get("close_time", candle["open_time"])),
+                    )
+                )
+        if candle_rows:
+            self.db.executemany(
+                """
+                INSERT INTO candles(symbol, interval, open_time, open, high, low, close, volume, close_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(symbol, interval, open_time) DO UPDATE SET
+                    open=excluded.open,
+                    high=excluded.high,
+                    low=excluded.low,
+                    close=excluded.close,
+                    volume=excluded.volume,
+                    close_time=excluded.close_time
+                """,
+                candle_rows,
+            )
 
     def latest_quality(self, symbol: str) -> dict[str, Any] | None:
         return self.db.query_one("SELECT * FROM symbol_data_quality WHERE symbol=?", (symbol,))

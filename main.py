@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from app.ai.lmstudio_client import LMStudioClient
 from app.ai.telegram_message_formatter import TelegramMessageFormatter
+from app.alerts.coin_alerts import CoinAlertService
+from app.backtest.backtester import BacktestEngine
+from app.backtest.signal_quality_report import SignalQualityReport
 from app.collector.broad_market_collector import BroadMarketCollector
-from app.config import load_config, safe_config_view
+from app.config import DEFAULT_CONFIG, load_config, safe_config_view
 from app.database import Database
 from app.knowledge.vector_store import rebuild_knowledge_index
 from app.learning.feedback import FeedbackService
@@ -51,6 +55,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rebuild-knowledge", action="store_true", help="Rebuild the local knowledge index.")
     parser.add_argument("--collect-market-data-now", action="store_true", help="Collect broad Binance Spot market data for ML.")
     parser.add_argument("--data-coverage-report", action="store_true", help="Show broad market data coverage.")
+    parser.add_argument("--coin-alert", metavar="COIN_ID", help="Check one coin such as SOL or SOLUSDT and send a movement alert.")
+    parser.add_argument("--backtest", action="store_true", help="Run a stored-candle signal backtest.")
+    parser.add_argument("--backtest-symbol", help="Limit --backtest to one symbol, for example SOLUSDT.")
+    parser.add_argument("--backtest-timeframe", help="Backtest candle timeframe, for example 15m or 1h.")
+    parser.add_argument("--backtest-days", type=int, help="Backtest lookback window in days.")
+    parser.add_argument("--backtest-max-symbols", type=int, help="Maximum symbols to include in --backtest.")
+    parser.add_argument("--signal-quality-report", action="store_true", help="Show live, paper, ML, and latest backtest quality summary.")
     parser.add_argument("--train-ml-model", action="store_true", help="Train the local ML filter from labeled signal history.")
     parser.add_argument("--ml-report", action="store_true", help="Show local ML training and prediction status.")
     parser.add_argument("--daily-summary", action="store_true", help="Send a daily summary immediately.")
@@ -67,8 +78,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def async_main() -> int:
     args = build_parser().parse_args()
+    ensure_runtime_environment(PROJECT_ROOT)
     config = load_config(PROJECT_ROOT / "config.yaml", PROJECT_ROOT / ".env")
     setup_logging(PROJECT_ROOT)
+    migrate_legacy_database_if_needed(PROJECT_ROOT, config)
     db = Database(PROJECT_ROOT / config["storage"]["sqlite_path"])
     db.initialize()
 
@@ -135,6 +148,31 @@ async def async_main() -> int:
         print(BroadMarketCollector(config, db).coverage_report())
         return 0
 
+    if args.coin_alert:
+        try:
+            alert = CoinAlertService(config, db, notifier=notifier).check_coin(args.coin_alert, force=True)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(alert["message"])
+        print("")
+        print("Telegram sent." if alert.get("sent") else "Telegram not sent or disabled. Message printed above.")
+        return 0
+
+    if args.backtest:
+        report = BacktestEngine(config, db).run(
+            symbol=args.backtest_symbol,
+            timeframe=args.backtest_timeframe,
+            days=args.backtest_days,
+            max_symbols=args.backtest_max_symbols,
+        )
+        print(report)
+        return 0
+
+    if args.signal_quality_report:
+        print(SignalQualityReport(config, db).render())
+        return 0
+
     if args.train_ml_model:
         print(FutureMLModel(db, config, PROJECT_ROOT).train())
         return 0
@@ -145,7 +183,7 @@ async def async_main() -> int:
 
     service = CryptoRadarService(config=config, db=db, project_root=PROJECT_ROOT, mock=args.mock)
 
-    if args.auto_pipeline:
+    if args.auto_pipeline or should_auto_start_exe():
         await service.run_auto_pipeline()
         return 0
 
@@ -172,6 +210,27 @@ async def async_main() -> int:
 
     await service.run_forever()
     return 0
+
+
+def ensure_runtime_environment(project_root: Path) -> None:
+    for folder in ("data", "models", "models/model_reports", "logs", "exports", "backups", "knowledge"):
+        (project_root / folder).mkdir(parents=True, exist_ok=True)
+    config_path = project_root / "config.yaml"
+    if not config_path.exists():
+        config_path.write_text(json.dumps(DEFAULT_CONFIG, indent=2), encoding="utf-8")
+
+
+def migrate_legacy_database_if_needed(project_root: Path, config: dict) -> None:
+    configured = Path(config["storage"]["sqlite_path"])
+    target = configured if configured.is_absolute() else project_root / configured
+    legacy = project_root / "data" / "cryptoradar.sqlite3"
+    if target.name == "cryptoradar.db" and not target.exists() and legacy.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy, target)
+
+
+def should_auto_start_exe() -> bool:
+    return bool(getattr(sys, "frozen", False) and len(sys.argv) == 1)
 
 
 def build_fake_buy_signal() -> dict:

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.learning.outcome_rules import classify_paper_result
+
 
 class SignalPerformanceService:
-    def __init__(self, db: Any):
+    def __init__(self, db: Any, config: dict[str, Any] | None = None):
         self.db = db
+        self.config = config or {}
 
     def update_future_price(self, signal_id: str, horizon: str, price: float) -> None:
         allowed = {"15m": "price_15m", "1h": "price_1h", "4h": "price_4h", "24h": "price_24h", "7d": "price_7d"}
@@ -26,11 +29,15 @@ class SignalPerformanceService:
             return "unknown"
         entry = float(signal["price"])
         move = (float(perf["price_24h"]) - entry) / entry * 100
-        if move >= 3:
-            result = "win"
-        elif move <= -2:
-            result = "loss"
-        else:
+        result = classify_paper_result(
+            signal_type="BUY",
+            move_pct=move,
+            max_profit_pct=move,
+            max_drawdown_pct=move,
+            age_minutes=None,
+            config=self.config,
+        )
+        if result == "unknown":
             result = "neutral"
         self.db.execute("UPDATE signal_performance SET final_result=? WHERE signal_id=?", (result, signal_id))
         self.db.execute("UPDATE signals SET final_result=? WHERE id=?", (result, signal_id))

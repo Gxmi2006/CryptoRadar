@@ -7,10 +7,16 @@ __pycache__/
 
 data/*.sqlite3
 data/*.sqlite3-*
+data/*.db
+data/*.db-*
 data/vector_db/
 data/ml/
+models/
 *.joblib
+*.pkl
 logs/*.log
+exports/
+backups/
 
 knowledge/*
 !knowledge/README.md
