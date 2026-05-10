@@ -86,6 +86,8 @@ python main.py --collect-market-data-now
 python main.py --data-coverage-report
 ```
 
+By default, broad collection stores ticker data quickly and prints progress in PowerShell. If you want slower candle enrichment for each symbol, set `collector.fetch_candles: true` in `config.yaml`.
+
 The normal background service can also run the broad collector on its configured interval.
 
 ## Local AI Analysis

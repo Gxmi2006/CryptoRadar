@@ -33,6 +33,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_symbols_per_cycle": 1000,
         "include_low_data_symbols": True,
         "interval_minutes": 30,
+        "fetch_candles": False,
         "candle_interval": "1h",
         "candle_limit": 24,
     },

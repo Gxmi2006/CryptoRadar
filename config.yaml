@@ -18,6 +18,7 @@ collector:
   max_symbols_per_cycle: 1000
   include_low_data_symbols: true
   interval_minutes: 30
+  fetch_candles: false
   candle_interval: "1h"
   candle_limit: 24
 

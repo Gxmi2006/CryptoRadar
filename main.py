@@ -126,7 +126,7 @@ async def async_main() -> int:
         return 0
 
     if args.collect_market_data_now:
-        summary = BroadMarketCollector(config, db).collect_now()
+        summary = BroadMarketCollector(config, db).collect_now(lambda message: print(message, flush=True))
         print(json.dumps(summary, indent=2))
         return 0
 

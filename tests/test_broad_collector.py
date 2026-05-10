@@ -43,6 +43,7 @@ def test_broad_collector_includes_low_volume_symbols(config: dict, db) -> None:
 
 
 def test_missing_candles_are_labeled_instead_of_dropped(config: dict, db) -> None:
+    config["collector"]["fetch_candles"] = True
     BroadMarketCollector(config, db, FakeBroadRest()).collect_now()
     missing = db.query_one("SELECT * FROM symbol_data_quality WHERE symbol='MISSUSDT'")
     assert missing is not None
@@ -56,3 +57,11 @@ def test_data_quality_classification() -> None:
     assert classify_data_quality(price=1, volume_usdt=2_000_000, candle_count=24)[0] == "thin"
     assert classify_data_quality(price=1, volume_usdt=500, candle_count=24)[0] == "low_volume"
     assert classify_data_quality(price=1, volume_usdt=5_000_000, candle_count=0)[0] == "missing_candles"
+    assert classify_data_quality(price=1, volume_usdt=5_000_000, candle_count=0, candles_required=False)[0] == "good"
+
+
+def test_collect_now_prints_progress(config: dict, db) -> None:
+    messages: list[str] = []
+    BroadMarketCollector(config, db, FakeBroadRest()).collect_now(messages.append)
+    assert any("Loading Binance" in message for message in messages)
+    assert any("Saving" in message for message in messages)
