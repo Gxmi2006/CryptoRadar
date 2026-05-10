@@ -1,24 +1,28 @@
 # CryptoRadar
 
-> Backend-only crypto signal intelligence for Binance Spot markets, local AI analysis, and Telegram push alerts.
+> Backend-only crypto signal intelligence for Binance Spot markets, local ML learning, local AI analysis, and Telegram push alerts.
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](#requirements)
+[![Local ML](https://img.shields.io/badge/ML-threshold%20learning-purple)](#local-ml-filter)
 [![Local AI](https://img.shields.io/badge/AI-LM%20Studio%20%7C%20Ollama-green)](#local-ai-analysis)
 [![Telegram](https://img.shields.io/badge/Alerts-Telegram-26A5E4)](#telegram-push-notifications)
 
-CryptoRadar is a terminal-based crypto market signal bot. It discovers active Binance Spot markets, scans broad token coverage by default, analyzes technical conditions, uses local AI when available, and sends clean Telegram notifications when strong signals appear.
+CryptoRadar is a terminal-based crypto market signal bot. It discovers active Binance Spot markets, scans broad token coverage by default, analyzes technical conditions, learns from paper-tracked outcomes with a local ML filter, uses local AI when available, and sends clean Telegram notifications when strong signals appear.
 
 There is no website, no dashboard, and no frontend. CryptoRadar runs from the terminal or as a background service.
 
 ## Main Focus
 
-| Focus | What CryptoRadar Does |
+CryptoRadar is centered around **local ML-assisted signal filtering**. It does not try to predict perfectly or trade automatically; it collects evidence, tracks outcomes, and uses that learning to make future alerts more selective.
+
+| Priority | What CryptoRadar Does |
 | --- | --- |
-| Broad token scanning | Discovers active Binance Spot symbols and analyzes nearly every token that passes your quote, volume, and watchlist filters. USDT pairs are enabled by default. |
-| Local AI analysis | Uses LM Studio or Ollama locally to reason over market data, indicators, knowledge snippets, and signal history. No cloud AI is required by default. |
-| Telegram push alerts | Sends short, mobile-friendly Telegram alerts for eligible BUY, SELL, and HIGH_RISK signals. |
-| Learning loop | Tracks signal outcomes, simulated paper trades, broad market data, ML filtering, manual feedback, and adaptive scoring notes. |
-| Safety-first design | The bot only analyzes and notifies. It cannot place trades or use Binance trading endpoints. |
+| **Local ML learning** | Converts completed paper-trade outcomes into threshold-based training examples, trains a local logistic regression filter, and adds success probability, risk, confidence, and data-quality notes to future alerts. |
+| **Telegram push alerts** | Sends mobile-friendly BUY, SELL, HIGH_RISK, preferred-coin, news, holding, and ML breakout alerts. |
+| **Broad Binance coverage** | Collects active Binance Spot market data, including lower-volume symbols, and labels weak data instead of pretending every coin has the same reliability. |
+| **Proof engine** | Backtests stored candles, compares signals with momentum/volume/random baselines, and reports whether alerts are actually proving useful. |
+| **Local AI analysis** | Uses LM Studio or Ollama locally for optional signal explanations without cloud AI by default. |
+| **No-trading safety** | Notification-only by design: no orders, no Binance private trading permissions, no leverage, no futures, no withdrawals. |
 
 ## What Makes CryptoRadar Different
 
@@ -33,11 +37,25 @@ CryptoRadar is built as a **proof-first alert engine**, not a hype bot.
 
 Highlights:
 
+- **Local ML as a first-class feature:** completed signal outcomes become training rows, and the model adds probability/risk/confidence context without taking control away from the scoring engine.
 - **Preferred coin intelligence:** `/prefer FOREST` or `/prefer SOLUSDT` starts focused movement, news, and ML breakout monitoring.
 - **Telegram-first workflow:** manage preferred coins, holdings, status, ML status, and news from Telegram.
 - **Broad ML data collection:** stores major and minor Binance Spot data with quality labels instead of silently ignoring thin coins.
 - **Local AI optional:** LM Studio/Ollama can explain signals locally; fixed templates keep alert numbers deterministic.
 - **Threshold-based learning:** tiny moves like `+0.1%` are not counted as wins.
+
+## ML Learning In Plain English
+
+CryptoRadar's ML layer is built to reduce noisy alerts, not to promise perfect prediction.
+
+| Step | What Happens |
+| --- | --- |
+| 1. Collect market data | Stores broad Binance Spot snapshots and candle history, including minor coins with data-quality labels. |
+| 2. Generate signals | Creates BUY, SELL, HIGH_RISK, HOLD, WAIT, and AVOID records from rule-based scoring. |
+| 3. Track outcomes | Follows each alert as a paper trade and records future price movement, drawdown, and usefulness. |
+| 4. Label results | Uses meaningful thresholds, so a tiny `+0.1%` move is not treated as a successful prediction. |
+| 5. Train locally | Builds a local logistic regression model from completed outcomes. |
+| 6. Help future alerts | Adds probability, risk, confidence, and data-quality notes while the normal scoring engine stays in control. |
 
 ## Safety First
 
@@ -58,17 +76,19 @@ Signals are analysis only. They are not guaranteed profit. You always decide man
 
 ```mermaid
 flowchart LR
-    A["Binance Spot public data"] --> B["Symbol discovery and market scanner"]
+    A["Binance Spot public data"] --> B["Scanner and candle storage"]
     B --> C["Technical indicators"]
     C --> D["Signal scoring"]
-    D --> E["Local AI analysis"]
-    E --> F["Telegram push alert"]
-    D --> G["SQLite signal history"]
-    G --> H["Paper trade tracking"]
-    H --> I["Adaptive scoring report"]
+    D --> E["Telegram push alert"]
+    D --> F["Signal history"]
+    F --> G["Paper trade tracking"]
+    G --> H["Threshold outcome labels"]
+    H --> I["Local ML filter"]
+    I --> D
+    D --> J["Optional local AI explanation"]
 ```
 
-CryptoRadar watches public Binance Spot market data, calculates indicators, creates signal scores, asks local AI for extra analysis when configured, and then sends only the signals that pass your notification rules.
+CryptoRadar watches public Binance Spot market data, calculates indicators, creates signal scores, tracks paper outcomes, trains a local ML filter from meaningful win/loss/neutral labels, asks local AI for optional analysis when configured, and sends only the signals that pass your notification rules.
 
 ## What CryptoRadar Can Analyze
 
@@ -241,7 +261,7 @@ Mock mode uses fake market data, so it is the safest first test.
 Use the automated PowerShell runner when you want CryptoRadar to keep working without typing each command manually.
 
 ```powershell
-cd "C:\Users\ASUS\Documents\New project 3"
+cd CryptoRadar
 .\scripts\run_cryptoradar.ps1
 ```
 
@@ -339,7 +359,7 @@ Preferred coins are coins you care about. Holdings are coins you already bought.
 Build a clean one-file Windows EXE with:
 
 ```powershell
-cd "C:\Users\ASUS\Documents\New project 3"
+cd CryptoRadar
 .\scripts\build_exe.ps1 -Clean
 ```
 
